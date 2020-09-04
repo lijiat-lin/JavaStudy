@@ -5,7 +5,9 @@ import java.util.Arrays;
 /**
  * 冒泡排序
  * 冒泡排序是一种稳定排序，值相等的元素并不会打乱原有的顺序
+ * 冒泡排序：把相邻的元素两两比较，当一个元素大于右侧相邻元素时，交换他们的位置；
  * 由于该排序算法需要遍历所有的元素，总共遍历（元素数量-1）轮，所以平均时间复杂度是O(n²)
+ * 问题思考： 插入排序和冒泡排序的时间复杂度相同，都是 O(n2)，在实际的软件开发里，为什么我们更倾向于使用插入排序算法而不是冒泡排序算法呢？
  * @author zhangjialin
  */
 public class BubbleSort {
@@ -53,7 +55,6 @@ public class BubbleSort {
     }
 
     /**
-     * 冒泡排序：把相邻的元素两两比较，当一个元素大于右侧相邻元素时，交换他们的位置；
      * 当一个元素小于或者等于右侧相邻元素时，位置不变
      * 冒泡排序是稳定排序（相同的元素位置不变）
      * 后面的元素已经是最大的排序好的，就减少比较的次数
@@ -127,9 +128,28 @@ public class BubbleSort {
         }
     }
 
+    public static void sort5(int[] arr){
+        boolean isExchange = true;
+        for (int i = 0; i < arr.length; i++) {
+            isExchange = true;
+            for (int j = 0; j < arr.length-i-1 ; j++) {
+                if(arr[j]>arr[j+1]){
+                    int temp = arr[j];
+                    arr[j] = arr[j+1];
+                    arr[j+1] = temp;
+                    isExchange = false;
+                }
+            }
+            if (isExchange){
+                break;
+            }
+            System.out.println(Arrays.toString(arr));
+
+        }
+    }
     public static void main(String[] args) {
         int[] array = new int[]{2,3,4,5,6,7,8,1};
-        sort4(array);
-        System.out.println(Arrays.toString(array));
+        sort5(array);
+//        System.out.println(Arrays.toString(array));
     }
 }
