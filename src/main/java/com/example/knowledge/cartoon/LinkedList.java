@@ -108,15 +108,15 @@ public class LinkedList {
     static final int MAXIMUM_CAPACITY = 1 << 30;
 
     public static void main(String[] args) throws Exception{
-//        LinkedList linkedList = new LinkedList();
-//        linkedList.insert(3,0);
-//        linkedList.insert(7,1);
-//        linkedList.insert(9,2);
-//        linkedList.insert(5,3);
-//        linkedList.insert(6,1);
-//        linkedList.remove(0);
-//        linkedList.output();
-        System.out.println(tableSizeFor(10));
+        LinkedList linkedList = new LinkedList();
+        linkedList.insert(3,0);
+        linkedList.insert(7,1);
+        linkedList.insert(9,2);
+        linkedList.insert(5,3);
+        linkedList.insert(6,1);
+        linkedList.remove(0);
+        linkedList.output();
+//        System.out.println(tableSizeFor(10));
 
     }
     static final int tableSizeFor(int cap) {
