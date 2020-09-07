@@ -143,7 +143,7 @@ public class BubbleSort {
             if (isExchange){
                 break;
             }
-            System.out.println(Arrays.toString(arr));
+//            System.out.println(Arrays.toString(arr));
 
         }
     }

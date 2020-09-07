@@ -1,9 +1,6 @@
 package com.example.knowledge.algorithms;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Stack;
+import java.util.*;
 
 /**
  * 快速排序
@@ -62,10 +59,8 @@ public class QuickSort {
         if(start>=end){
             return;
         }
-
         //得到基准元素的位置
         int pivot = partition(arr,start,end);
-//        int pivot = partition1(arr,start,end);
 
         //根据基准元素，分成两部分进行递归排序
         quickSort(arr,start,pivot-1);
@@ -106,7 +101,6 @@ public class QuickSort {
         //pivot和指针重合点交换
         arr[start] = arr[left];
         arr[left] = pivot;
-
         return left;
     }
 
@@ -124,6 +118,9 @@ public class QuickSort {
 
         for (int i = start+1; i <= end; i++) {
             if(arr[i]<pivot){
+                if (mark == i){
+                    continue;
+                }
                 mark++;
                 int p = arr[mark];
                 arr[mark] = arr[i];
@@ -138,9 +135,18 @@ public class QuickSort {
 
     }
     public static void main(String[] args) {
-        int[] arr = new int[]{3,5,7,23,8,0,26,89,67,65,34,9,45,16,18,24,23};
-//        quickSort(arr,0,arr.length-1);
-        quickSortNotRecursive(arr,0,arr.length-1);
+//        int[] arr = new int[]{3,5,7,23,8,0,26,89,67,65,34,9,45,16,18,24,23};
+        int[] arr = new int[10000];
+        Random random = new Random();
+        for (int i = 0; i < 10000; i++) {
+            arr[i] = random.nextInt(100000)+1;
+        }
+        long start = System.currentTimeMillis();
+        quickSort(arr,0,arr.length-1);
+        long end = System.currentTimeMillis();
+        System.out.println("快速排序时间："+(end-start));
+
+//        quickSortNotRecursive(arr,0,arr.length-1);
         System.out.println(Arrays.toString(arr));
     }
 }
