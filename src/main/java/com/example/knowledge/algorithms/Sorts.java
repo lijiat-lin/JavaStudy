@@ -1,6 +1,9 @@
 package com.example.knowledge.algorithms;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * @program: knowledge
@@ -142,7 +145,11 @@ public class Sorts {
     }
     public static void main(String[] args) {
         int[] array = new int[]{2,3,9,5,6,7,8,1,4,10,16,12,14,19,11};
-        mergeSort(array,0,array.length);
+//        mergeSort(array,0,array.length);
+
+        Arrays.sort(array);
+        System.out.println(Arrays.toString(array));
+
         System.out.println(Arrays.toString(array));
     }
 }
