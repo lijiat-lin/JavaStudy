@@ -1,5 +1,7 @@
 package com.example.knowledge.algorithms;
 
+import sun.security.provider.MD5;
+
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 
@@ -158,5 +160,6 @@ public class SkipList {
         hashMap.forEach((key,value) ->{
             System.out.println(key+":"+value);
         });
+
     }
 }
