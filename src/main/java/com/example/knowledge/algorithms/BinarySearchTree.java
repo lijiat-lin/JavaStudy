@@ -1,5 +1,10 @@
 package com.example.knowledge.algorithms;
 
+import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
+import java.util.Random;
+
 /**
  * @program: knowledge
  * @description: 二叉查找树
@@ -106,5 +111,114 @@ public class BinarySearchTree {
         public Node(int data) {
             this.data = data;
         }
+    }
+
+    public static int findTreeHigh(Node node){
+
+        if (node.left == null && node.right == null){
+            return 1;
+        }
+        //求左子树的高度
+        int leftHigh = 0;
+        if(node.left!=null){
+            leftHigh = findTreeHigh(node.left);
+        }
+        int rightHigh = 0;
+        //求右子树的高度
+        if(node.right != null){
+            rightHigh = findTreeHigh(node.right);
+        }
+        return leftHigh>rightHigh?leftHigh+1:rightHigh+1;
+    }
+
+    /**
+     * 前序遍历
+     * @param node
+     */
+    public static void preOrder(Node node){
+        if(node == null){
+            return;
+        }
+        System.out.printf(node.data+",");
+        preOrder(node.left);
+        preOrder(node.right);
+    }
+
+    /**
+     * 中序遍历
+     * @param node
+     */
+    public static void inOrder(Node node){
+        if(node == null){
+            return;
+        }
+        preOrder(node.left);
+        System.out.printf(node.data+",");
+        preOrder(node.right);
+    }
+
+
+    /**
+     * 后序遍历
+     * @param node
+     */
+    public static void postOrder(Node node){
+        if(node == null){
+            return;
+        }
+        preOrder(node.left);
+        preOrder(node.right);
+        System.out.printf(node.data+",");
+    }
+
+    /**
+     * 层级遍历
+     * @param node
+     */
+    public static void levelOrder(Node node){
+        Queue<Node> queue = new LinkedList<>();
+        queue.offer(node);
+        while (!queue.isEmpty()){
+            Node node1 = queue.poll();
+            System.out.printf(node1.data+",");
+            if(node1.left!=null){
+                queue.offer(node1.left);
+            }
+
+            if (node1.right!=null){
+                queue.offer(node1.right);
+            }
+        }
+    }
+
+
+    public static void main(String[] args) {
+        BinarySearchTree binarySearchTree = new BinarySearchTree();
+        Random random = new Random();
+
+        binarySearchTree.insert(50);
+        for (int i = 0; i < 30; i++) {
+            binarySearchTree.insert(random.nextInt(100));
+
+        }
+        System.out.println("前序遍历：");
+        preOrder(binarySearchTree.tree);
+        System.out.println();
+        System.out.println("中序遍历：");
+        inOrder(binarySearchTree.tree);
+        System.out.println();
+        System.out.println("后序遍历：");
+        postOrder(binarySearchTree.tree);
+        System.out.println();
+
+        System.out.println("层级遍历（广度优先）");
+        levelOrder(binarySearchTree.tree);
+        System.out.println();
+        System.out.println("数的层数"+findTreeHigh(binarySearchTree.tree));
+
+
+        System.out.println(10%10);
+
+
     }
 }
