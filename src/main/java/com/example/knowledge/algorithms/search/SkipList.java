@@ -1,4 +1,4 @@
-package com.example.knowledge.algorithms;
+package com.example.knowledge.algorithms.search;
 
 import sun.security.provider.MD5;
 

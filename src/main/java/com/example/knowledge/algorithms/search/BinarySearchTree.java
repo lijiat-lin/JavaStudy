@@ -1,6 +1,5 @@
-package com.example.knowledge.algorithms;
+package com.example.knowledge.algorithms.search;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Queue;
 import java.util.Random;

@@ -1,4 +1,4 @@
-package com.example.knowledge.algorithms;
+package com.example.knowledge.algorithms.sort;
 
 import java.util.Arrays;
 import java.util.Random;
