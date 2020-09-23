@@ -1,5 +1,8 @@
 package com.example.knowledge.leetCode;
 
+import java.lang.ref.PhantomReference;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -156,8 +159,24 @@ public class Solution {
         return true;
     }
     public static void main(String[] args) {
-        System.out.println(oneEditAway("abcde","abcdef"));
-
+        //创建一个新的对象
         Object object = new Object();
+        //创建一个引用队列
+        ReferenceQueue referenceQueue = new ReferenceQueue();
+        //将对象放入到引用队列中
+        PhantomReference<Object> p = new PhantomReference<>(object,referenceQueue);
+        //去除object对象的强引用
+        object = null;
+        //执行垃圾回收
+        System.gc();
+        try{
+
+            Reference<Object> ref = referenceQueue.remove(1000L);
+            if(ref!=null){
+                //do something
+            }
+        }catch (InterruptedException e){
+
+        }
     }
 }
