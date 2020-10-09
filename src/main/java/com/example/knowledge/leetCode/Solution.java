@@ -174,6 +174,7 @@ public class Solution {
             Reference<Object> ref = referenceQueue.remove(1000L);
             if(ref!=null){
                 //do something
+                System.out.println(ref.get());
             }
         }catch (InterruptedException e){
 
