@@ -3,10 +3,9 @@ package com.example.knowledge.leetCode;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.Set;
+import java.util.Hashtable;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @program: knowledge
@@ -158,26 +157,122 @@ public class Solution {
         }
         return true;
     }
-    public static void main(String[] args) {
-        //创建一个新的对象
-        Object object = new Object();
-        //创建一个引用队列
-        ReferenceQueue referenceQueue = new ReferenceQueue();
-        //将对象放入到引用队列中
-        PhantomReference<Object> p = new PhantomReference<>(object,referenceQueue);
-        //去除object对象的强引用
-        object = null;
-        //执行垃圾回收
-        System.gc();
-        try{
 
-            Reference<Object> ref = referenceQueue.remove(1000L);
-            if(ref!=null){
-                //do something
-                System.out.println(ref.get());
-            }
-        }catch (InterruptedException e){
 
+    /**
+     * 字符串压缩。利用字符重复出现的次数，编写一种方法，实现基本的字符串压缩功能。
+     * 比如，字符串aabcccccaaa会变为a2b1c5a3。若“压缩”后的字符串没有变短，则返回原先的字符串。
+     * 你可以假设字符串中只包含大小写英文字母（a至z）。
+     *
+     *
+     * @param S
+     * @return
+     */
+    public static String compressString(String S) {
+        //校验字符串的长度
+        if(S.length()<=2){
+            return S;
         }
+        char[] chars = S.toCharArray();
+        int index = 0;
+
+        int count = 1;
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append('!');
+        for (int i = 0; i < chars.length; i++) {
+            if(stringBuilder.charAt(index)!=chars[i]){
+                stringBuilder.append(count);
+                stringBuilder.append(chars[i]);
+                index += Integer.toString(count).length()+1;
+                count = 1;
+            }else{
+                count++;
+            }
+            if(index-2>=S.length()){
+                return S;
+            }
+        }
+        stringBuilder.append(count);
+        index += Integer.toString(count).length();
+
+        if(stringBuilder.length()-2>=S.length()){
+            return S;
+        }else{
+            return stringBuilder.substring(2,index+1);
+        }
+
+    }
+
+    /**
+     * 给你一幅由 N × N 矩阵表示的图像，其中每个像素的大小为 4 字节。请你设计一种算法，将图像旋转 90 度。
+     *
+     * 不占用额外内存空间能否做到？
+     *
+     * 解析：
+     * i行j列的数据转化为
+     * i,j - j,n-i-1
+     * 每一次循环交换4个数据
+     * 0,1  1,3   3,2   2,0
+     * @param matrix
+     */
+    public static void rotate(int[][] matrix) {
+        int n = matrix.length;
+        int count = 0;
+        for (int i = 0; i < n-count-1; i++) {
+            for (int j = i; j < n-count-1; j++) {
+                int tmp = matrix[i][j];
+                matrix[i][j] = matrix[n-1-j][i];
+                matrix[n-1-j][i] = matrix[n-1-i][n-1-j];
+                matrix[n-1-i][n-1-j] = matrix[j][n-1-i];
+                matrix[j][n-1-i] = tmp;
+            }
+            count++;
+        }
+    }
+    public static void  soutMatrix(int[][] matrix){
+        int m = matrix.length;
+        int n = matrix[0].length;
+
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                System.out.printf(matrix[i][j]+",");
+            }
+            System.out.println();
+        }
+    }
+
+    /**
+     * 编写一种算法，若M × N矩阵中某个元素为0，则将其所在的行与列清零。
+     * @param matrix
+     */
+    public static void setZeroes(int[][] matrix) {
+        int m = matrix.length;
+        int n = matrix[0].length;
+        HashSet<Integer> row = new HashSet<>();
+        HashSet<Integer> column = new HashSet<>();
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                if(matrix[i][j] == 0){
+                    row.add(i);
+                    column.add(j);
+                }
+            }
+        }
+        for (int i = 0; i < m; i++) {
+            for (int j = 0; j < n; j++) {
+                if(row.contains(i)||column.contains(j)){
+                    matrix[i][j] = 0;
+                }
+            }
+        }
+
+    }
+
+    public static void main(String[] args) {
+
+        int[][] matrix = new int[][]{{0,1,2,0},{3,4,5,2},{1,3,1,5}};
+        soutMatrix(matrix);
+        setZeroes(matrix);
+        soutMatrix(matrix);
     }
 }

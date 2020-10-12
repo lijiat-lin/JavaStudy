@@ -665,5 +665,598 @@ java对象的内存结构是什么样的？
 - Set，Set 是不允许重复元素的，这是和 List 最明显的区别，也就是不存在两个对象 equals 返回 true。我们在日常开发中有很多需要保证元素唯一性的场合。
 - Queue/Deque，则是 Java 提供的标准队列结构的实现，除了集合的基本功能，它还支持类似先入先出（FIFO， First-in-First-Out）或者后入先出（LIFO，Last-In-First-Out）等特定行为。这里不包括 BlockingQueue，因为通常是并发编程场合，所以被放置在并发包里。
 
+每种集合的通用逻辑，都被抽象到相应的抽象类之中，比如 AbstractList 就集中了各种 List 操作的通用部分。这些集合不是完全孤立的，比如，LinkedList 本身，既是 List，也是 Deque 哦。
 
+我们需要对各种具体集合实现，至少了解基本特征和典型使用场景，以 Set 的几个实现为例：
+
+- TreeSet 支持自然顺序访问，但是添加、删除、包含等操作要相对低效（log(n) 时间）。
+- HashSet 则是利用哈希算法，理想情况下，如果哈希散列正常，可以提供常数时间的添加、删除、包含等操作，但是它不保证有序。
+- LinkedHashSet，内部构建了一个记录插入顺序的双向链表，因此提供了按照插入顺序遍历的能力，与此同时，也保证了常数时间的添加、删除、包含等操作，这些操作性能略低于 HashSet，因为需要维护链表的开销。
+- 遍历元素时，HashSet 性能受自身容量影响，所以初始化时，除非有必要，不然不要将其背后的 HashMap 容量设置过大。而对于 LinkedHashSet，由于其内部链表提供的方便，遍历性能只和元素多少有关系。
+
+对于以上的集合，都不是线程安全的，如果想要实现其线程安全，可以利用Collections工具类的synchronized方法
+
+```java
+//将ArrayList设置为线程安全的
+List list = Collections.synchronizedList(new ArrayList());
+```
+
+它的实现，基本就是将每个基本方法，比如 get、set、add 之类，都通过 synchronized 添加基本的同步支持，非常简单粗暴，但也非常实用。注意这些方法创建的线程安全集合，都符合迭代时 fail-fast 行为，当发生意外的并发修改时，尽早抛出 ConcurrentModificationException 异常，以避免不可预计的行为。
+
+理解 Java 提供的默认排序算法，具体是什么排序方式以及设计思路等。
+
+- 排序分区的数组长度小于47使用插入排序
+- 排序分区的数组长度小于286，大于47使用快速排序（双轴排序，选两个分区点进行排序）
+- 排序分区的数组长度大于286使用的是归并排序
+
+
+
+## 第9讲 | 对比Hashtable、HashMap、TreeMap有什么不同？
+
+> 典型回答
+
+Hashtable、HashMap、TreeMap 都是最常见的一些 Map 实现，是以键值对的形式存储和操作数据的容器类型。
+
+Hashtable 是早期 Java 类库提供的一个哈希表实现，本身是同步的，不支持 null 键和值，由于同步导致的性能开销，所以已经很少被推荐使用。
+
+HashMap 是应用更加广泛的哈希表实现，行为上大致上与 HashTable 一致，主要区别在于 HashMap 不是同步的，支持 null 键和值等。通常情况下，HashMap 进行 put 或者 get 操作，可以达到常数时间的性能，所以它是绝大部分利用键值对存取场景的首选，比如，实现一个用户 ID 和用户信息对应的运行时存储结构。
+
+TreeMap 则是基于红黑树的一种提供顺序访问的 Map，和 HashMap 不同，它的 get、put、remove 之类操作都是 O（log(n)）的时间复杂度，具体顺序可以由指定的 Comparator 来决定，或者根据键的自然顺序来判断。
+
+> 知识扩展
+
+1、Map整体结构
+
+首先，我们先对 Map 相关类型有个整体了解，Map 虽然通常被包括在 Java 集合框架里，但是其本身并不是狭义上的集合类型（Collection），具体你可以参考下面这个简单类图。
+
+![img](image/javaPoint/Map集合.png)
+
+Hashtable 比较特别，作为类似 Vector、Stack 的早期集合相关类型，它是扩展了 Dictionary 类的，类结构上与 HashMap 之类明显不同。
+
+大部分使用 Map 的场景，通常就是放入、访问或者删除，而对顺序没有特别要求，HashMap 在这种情况下基本是最好的选择。HashMap 的性能表现非常依赖于哈希码的有效性，请务必掌握 hashCode 和 equals 的一些基本约定，例如：
+
+- equals 相等，hashCode 一定要相等
+- 重写了 hashCode 也要重写 equals。
+- hashCode 需要保持一致性，状态改变返回的哈希值仍然要一致
+- equals 的对称、反射、传递等特性。
+
+2、HashMap源码分析
+
+只要分析点：
+
+- HashMap内部实现基本点分析
+- 容量（capacity）和负载系数（loadfactory）
+- 树化
+
+首先，HashMap的内部结构，可以看做数组（Node<K,V>[] table）和链表结合组成的复合结构，数组被分为一个个的桶（bucket），通过哈希值决定了这个键值在这个数组的寻址。哈希值相同的键值对，则以链表的形式存储。当链表的大小超过阈值（8），链表会被改造成树形结构。
+
+![img](image/javaPoint/HashMap底层数组.png)
+
+
+
+HashMap的构造函数在初始化的时候，并没有初始化该数组，而是采用了lazy-load的原则，在put方法中才去初始化这个数组。
+
+```java
+
+final V putVal(int hash, K key, V value, boolean onlyIfAbent,
+               boolean evit) {
+    Node<K,V>[] tab; Node<K,V> p; int , i;
+    if ((tab = table) == null || (n = tab.length) = 0)
+        n = (tab = resize()).length;
+    if ((p = tab[i = (n - 1) & hash]) == ull)
+        tab[i] = newNode(hash, key, value, nll);
+    else {
+        // ...
+        if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for first 
+           treeifyBin(tab, hash);
+        //  ... 
+     }
+}
+
+```
+
+- 如果表格（数组）是null的，resize()方法会负责初始化它，从tab = resize（）可以看出
+- resize方法兼顾两个职责 ，创建初始化存储表格，或者在容量不满足需求的时候，进行扩容（resize）
+- 在放置新的键值对的过程中，如果发生以下条件就会发生扩容
+
+```java
+if (++size > threshold)
+    resize();
+```
+
+- 具体键值对在哈希表中的位置（数组index）取决于下面的位运算
+
+```java
+i = (n - 1) & hash
+```
+
+哈希值的源头并不是key本身的hashcode，而是来自于HashMap方法内部的另外一个hash方法。注意，`为什么这里需要将高位的数据移到低位然后进行异或运算呢？`
+
+- 这是因为有些数据计算出来的哈希值的主要差异存在于高位，而HashMap里的哈希寻址是忽略容量以上的高位的，那么这种处理就可以有效避免类似的哈希碰撞
+
+```java
+
+static final int hash(Object kye) {
+    int h;
+    return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>>16);
+}
+```
+
+HashMap 的putVal方法解析
+
+```java
+final V putVal(int hash, K key, V value, boolean onlyIfAbsent,
+                   boolean evict) {
+        Node<K,V>[] tab; Node<K,V> p; int n, i;
+        //首次初始化的时候，table为null
+        if ((tab = table) == null || (n = tab.length) == 0)
+            n = (tab = resize()).length;//对HashMap进行初始化
+    	//根据hash值计算当前位置为null	
+        if ((p = tab[i = (n - 1) & hash]) == null)
+            //在当前数组下标存放数据
+            tab[i] = newNode(hash, key, value, null);
+        else {
+            //如果存放的位置已经有值了
+            Node<K,V> e; K k;
+            if (p.hash == hash &&
+                ((k = p.key) == key || (key != null && key.equals(k))))
+                //如果当前传入的值hash和key的值都相同，则覆盖原有的值
+                e = p;
+            else if (p instanceof TreeNode)
+                //是否是红黑树，则进入红黑树的存值方法
+                e = ((TreeNode<K,V>)p).putTreeVal(this, tab, hash, key, value);
+            else {
+                //key不同，也不是红黑树，就是链表
+                for (int binCount = 0; ; ++binCount) {
+                    if ((e = p.next) == null) {
+                        //如果下一个节点为null
+                        //则将新数据赋值为下一个节点
+                        p.next = newNode(hash, key, value, null);
+                        if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+                            //如果数量大于8，则转为红黑树
+                            treeifyBin(tab, hash);
+                        break;
+                    }
+                    if (e.hash == hash &&
+                        ((k = e.key) == key || (key != null && key.equals(k))))
+                        break;
+                        //如果下一个节点的hash和key完全相同，则退出循环
+                    p = e;
+                }
+            }
+            if (e != null) { // existing mapping for key
+                //存在相同的key
+                V oldValue = e.value;
+                if (!onlyIfAbsent || oldValue == null)
+                    //如果原value为null  或者onlyIfAnsent为false时  替换原数据
+                    e.value = value;
+                //将数据移到链表的最后一位
+                afterNodeAccess(e);
+                return oldValue;
+            }
+        }
+        ++modCount;
+        if (++size > threshold)
+            resize();//如果当前HashMap的容量超过threshold则进行扩容
+            
+        /*
+        afterNodeInsertion方法的evict参数如果为false，表示哈希表处于创建模式。
+        只有在使用Map集合作为构造器创建LinkedHashMap或HashMap时才会为false，
+        使用其他构造器创建的LinkedHashMap，之后再调用put方法，该参数均为true。
+        */
+        afterNodeInsertion(evict);//用来回调移除最早放入Map的对象
+        return null;
+    }
+```
+
+HashMap的resize方法解析
+
+```java
+final Node<K,V>[] resize() {
+        //获取原来的数组
+        Node<K,V>[] oldTab = table;
+        //如果原数组为null则返回原数组长度为0，否则返回原数组长度
+        int oldCap = (oldTab == null) ? 0 : oldTab.length;
+        //原数组的要调整大小的大小值（容量*负载系数）。
+        int oldThr = threshold;
+        //定义新的数组大小，和新数组下一次需要调整的大小
+        int newCap, newThr = 0;
+        
+        
+        if (oldCap > 0) {
+        //如果原数组的大小是大于0的
+            if (oldCap >= MAXIMUM_CAPACITY) {
+                //如果原数组大于最大容量，则扩容大小为Integer的最大值
+                threshold = Integer.MAX_VALUE;
+                //返回原数组，不进行扩容
+                return oldTab;
+            }
+            else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
+                     oldCap >= DEFAULT_INITIAL_CAPACITY)
+                //如果新数组的容量变成原数组的容量的两倍还小于最大容量
+                //并且原数组大小大于默认数组大小
+                
+                //新的扩容量为原扩容量的两倍
+                newThr = oldThr << 1; // double threshold
+        }
+        else if (oldThr > 0) // initial capacity was placed in threshold
+            //如果原扩容量大于0，则新数组的大小为原扩容量的大小
+            newCap = oldThr;
+        else {               // zero initial threshold signifies using defaults
+            //原数组大小和原扩容量都不大于0，则使用默认大小
+            newCap = DEFAULT_INITIAL_CAPACITY;
+            newThr = (int)(DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
+        }
+        if (newThr == 0) {
+            //计算完之后，如果新的扩容量为0
+            //则设置新的扩容量为   新的数组容量*扩容因子
+            float ft = (float)newCap * loadFactor;
+            newThr = (newCap < MAXIMUM_CAPACITY && ft < (float)MAXIMUM_CAPACITY ?
+                      (int)ft : Integer.MAX_VALUE);
+        }
+        //给扩容量赋值
+        threshold = newThr;
+        //定义新的数组
+        @SuppressWarnings({"rawtypes","unchecked"})
+            Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
+        //将新的数组赋值给全局变量 table
+        table = newTab;
+        
+        if (oldTab != null) {
+            //如果旧数组不为null
+            for (int j = 0; j < oldCap; ++j) {
+                //循环遍历旧数组中的数据
+                Node<K,V> e;
+                if ((e = oldTab[j]) != null) {
+                    //如果数据不为null
+                    //将老数组中该下表的数组设置为null
+                    oldTab[j] = null;
+                    if (e.next == null)
+                        //如果这个数据的下一个节点为null，代表是链表的尾结点
+                        //重新hash这个数据 并将其复制到新数组重新hash的位置
+                        newTab[e.hash & (newCap - 1)] = e;
+                    else if (e instanceof TreeNode)
+                        //如果这个数据是树节点
+                        //将树箱中的节点分为上下树箱，如果现在太小，则取消树化。 仅从调整大小调用
+                        ((TreeNode<K,V>)e).split(this, newTab, j, oldCap);
+                    else { // preserve order
+                        //排除以上两种情况，这个数据是在链表中
+                        // 把当前index对应的链表分成两个链表，减少扩容的迁移量
+                        Node<K,V> loHead = null, loTail = null;
+                        Node<K,V> hiHead = null, hiTail = null;
+                        //定义数据的下一个节点
+                        Node<K,V> next;
+                        //循环链表复制数据
+                        do {
+                            next = e.next;
+                            if ((e.hash & oldCap) == 0) {
+                                // 扩容后不需要移动的链表
+                                if (loTail == null)
+                                    loHead = e;
+                                else
+                                    loTail.next = e;
+                                loTail = e;
+                            }
+                            else {
+                                // 扩容后需要移动的链表
+                                if (hiTail == null)
+                                    hiHead = e;
+                                else
+                                    hiTail.next = e;
+                                hiTail = e;
+                            }
+                        } while ((e = next) != null);
+                        if (loTail != null) {
+                            loTail.next = null;
+                            newTab[j] = loHead;
+                        }
+                        if (hiTail != null) {
+                            hiTail.next = null;
+                            newTab[j + oldCap] = hiHead;
+                        }
+                    }
+                }
+            }
+        }
+        return newTab;
+    }
+```
+
+根据源码，不考虑极端情况（容量理论最大值为MAXIMUM_CAPACITY指定，数值为1<<30，也就是2的30次方）
+
+- 门限值等于（负载因子）*（容量），如果构建HashMap的时候没有指定他们，那么就是依据相应的默认值常量
+- 门限通常是以倍数进行调整的（newThr = oldThe << 1），根据putVal中的逻辑，放元素个数超过门限大小的时候，则调整Map大小
+- 扩容后需要将老的数组中的元素重新放置到新的数组，这个是扩容的主要开销来源
+
+
+
+**3、容量，负载因子和树化**
+
+为什么需要这么重视容量和负载因子？
+
+- 这是因为容量和负载因子决定着数组可用通的数量，空桶太多会浪费空间，如果使用的太满则会严重影响操作的性能。极端情况下，假设只有一个桶，那么数据就会退化为链表，不能够提供常数级别的性能
+
+在实践中如何设置容量和负载因子？
+
+对于负载因子来说：
+
+- 如果没有特殊要求，不要轻易的更改负载因子，JDK中默认的负载因为通用与绝大部分场景
+- 如果需要调整，建议不要超过0.75，超过之后会明显增加冲突的概率，降低HashMap的性能
+- 如果使用太小的负载因子，会导致频繁的扩容，增加无谓的开销
+
+对于树化的改造，对应的逻辑主要在putVal和treeifyBin中
+
+```java
+
+final void treeifyBin(Node<K,V>[] tab, int hash) {
+    int n, index; Node<K,V> e;
+    if (tab == null || (n = tab.length) < MIN_TREEIFY_CAPACITY)
+        resize();
+    else if ((e = tab[index = (n - 1) & hash]) != null) {
+        //树化改造逻辑
+    }
+}
+```
+
+为什么HashMap要树化？
+
+本质上是个安全问题。因为在数据的放置过程中，如果发生了哈希冲突，则会将数据放置到一个桶内，行程一个链表结构，而链表的查询性能是线性的，严重影响存取性能。
+
+而在现实世界，构造哈希冲突的数据并不是非常复杂的事情，恶意代码就可以利用这些数据大量与服务器端交互，导致服务器端 CPU 大量占用，这就构成了哈希碰撞拒绝服务攻击
+
+> 问题思考？
+
+解决哈希冲突都有哪些方法？
+
+- 开放寻址法
+  - 开放寻址法的核心思想是如果出现了哈希冲突，则再去寻找一个新的地址，将其插入
+  - 线性探测法，当我们想要向数组中插入数据时，发现当前哈希位置已经有了数据，那么我们就从当前位置开始，向后寻址，找到第一个空这个的位置，将数据插入进入
+  - 二次探测法，跟线性探测法一样，线性探测法的每一次下标都会+1，而二次探测法则是从+1开始每次步长变为原来的二次方。
+  - 双重哈希法，当第一次哈希冲突之后，再进行一次哈希。
+- 链表法
+  - 数组中哈希冲突之后则在当前数据构建链表。
+
+
+
+## 第10讲 | 如何保证集合是线程安全的? ConcurrentHashMap如何实现高效地线程安全？
+
+> 典型回答
+
+Java 提供了不同层面的线程安全支持。在传统集合框架内部，除了 Hashtable 等同步容器，还提供了所谓的同步包装器（Synchronized Wrapper），我们可以调用 Collections 工具类提供的包装方法，来获取一个同步的包装容器（如 Collections.synchronizedMap），但是它们都是利用非常粗粒度的同步方式，在高并发情况下，性能比较低下。
+
+另外，更加普遍的选择是利用并发包提供的线程安全容器类，它提供了：
+
+- 各种并发容器，比如 ConcurrentHashMap、CopyOnWriteArrayList。
+- 各种线程安全队列（Queue/Deque），如 ArrayBlockingQueue、SynchronousQueue。
+- 各种有序容器的线程安全版本等。
+
+具体保证线程安全的方式，包括有从简单的 synchronize 方式，到基于更加精细化的，比如基于分离锁实现的 ConcurrentHashMap 等并发实现等。具体选择要看开发的场景需求，总体来说，并发包内提供的容器通用场景，远优于早期的简单同步实现。
+
+> 知识扩展
+
+**1、为什么需要 ConcurrentHashMap？**
+
+HashTable本身是比较低效的，因为它的实现基本就是将 put、get、size 等各种方法加上“synchronized”。简单来说，这就导致了所有并发操作都要竞争同一把锁，一个线程在进行同步操作时，其他线程只能等待，大大降低了并发操作的效率。
+
+
+
+**2、ConcurrentHashMap 分析**
+
+早期 ConcurrentHashMap，其实现是基于：
+
+- 分离锁，也就是将内部进行分段（Segment），里面则是 HashEntry 的数组，和 HashMap 类似，哈希相同的条目也是以链表形式存放。
+- HashEntry 内部使用 volatile 的 value 字段来保证可见性，也利用了不可变对象的机制以改进利用 Unsafe 提供的底层能力，比如 volatile access，去直接完成部分操作，以最优化性能，毕竟 Unsafe 中的很多操作都是 JVM intrinsic 优化过的。
+
+可以参考下面这个早期 ConcurrentHashMap 内部结构的示意图，其核心是利用分段设计，在进行并发操作的时候，只需要锁定相应段，这样就有效避免了类似 Hashtable 整体同步的问题，大大提高了性能。
+
+<img src="image/javaPoint/ConcurrentHashMap早期结构.png" alt="img" style="zoom: 80%;" />
+
+在构造的时候，Segment 的数量由所谓的 concurrentcyLevel 决定，默认是 16，也可以在相应构造函数直接指定。注意，Java 需要它是 2 的幂数值，如果输入是类似 15 这种非幂值，会被自动调整到 16 之类 2 的幂数值。
+
+具体情况，我们一起看看一些 Map 基本操作的源码，这是 JDK 7 比较新的 get 代码
+
+```java
+
+public V get(Object key) {
+        Segment<K,V> s; // manually integrate access methods to reduce overhead
+        HashEntry<K,V>[] tab;
+        int h = hash(key.hashCode());
+       //利用位操作替换普通数学运算
+       long u = (((h >>> segmentShift) & segmentMask) << SSHIFT) + SBASE;
+        // 以Segment为单位，进行定位
+        // 利用Unsafe直接进行volatile access
+        if ((s = (Segment<K,V>)UNSAFE.getObjectVolatile(segments, u)) != null &&
+            (tab = s.table) != null) {
+           //省略
+          }
+        return null;
+    }
+```
+
+而对于 put 操作，首先是通过二次哈希避免哈希冲突，然后以 Unsafe 调用方式，直接获取相应的 Segment，然后进行线程安全的 put 操作：
+
+```java
+
+ public V put(K key, V value) {
+        Segment<K,V> s;
+        if (value == null)
+            throw new NullPointerException();
+        // 二次哈希，以保证数据的分散性，避免哈希冲突
+        int hash = hash(key.hashCode());
+        int j = (hash >>> segmentShift) & segmentMask;
+        if ((s = (Segment<K,V>)UNSAFE.getObject          // nonvolatile; recheck
+             (segments, (j << SSHIFT) + SBASE)) == null) //  in ensureSegment
+            s = ensureSegment(j);
+        return s.put(key, hash, value, false);
+    }
+
+```
+
+其核心逻辑主要在一下内容中
+
+```java
+
+final V put(K key, int hash, V value, boolean onlyIfAbsent) {
+            // scanAndLockForPut会去查找是否有key相同Node
+            // 无论如何，确保获取锁
+            HashEntry<K,V> node = tryLock() ? null :
+                scanAndLockForPut(key, hash, value);
+            V oldValue;
+            try {
+                HashEntry<K,V>[] tab = table;
+                int index = (tab.length - 1) & hash;
+                HashEntry<K,V> first = entryAt(tab, index);
+                for (HashEntry<K,V> e = first;;) {
+                    if (e != null) {
+                        K k;
+                        // 更新已有value...
+                    }
+                    else {
+                        // 放置HashEntry到特定位置，如果超过阈值，进行rehash
+                        // ...
+                    }
+                }
+            } finally {
+                unlock();
+            }
+            return oldValue;
+        }
+
+```
+
+在进行并发写操作的时候：
+
+- ConcurrentHashMap 会获取再入锁，以保证数据一致性，Segment 本身就是基于 ReentrantLock 的扩展实现，所以，在并发修改期间，相应 Segment 是被锁定的。
+- 在最初阶段，进行重复性的扫描，以确定相应 key 值是否已经在数组里面，进而决定是更新还是放置操作，你可以在代码里看到相应的注释。重复扫描、检测冲突是 ConcurrentHashMap 的常见技巧。
+- ConcurrentHashMap不是整体的扩容，而是单独对Segment进行扩容
+
+另外一个 Map 的 size 方法同样需要关注，它的实现涉及分离锁的一个副作用。
+
+试想，如果不进行同步，简单的计算所有 Segment 的总值，可能会因为并发 put，导致结果不准确，但是直接锁定所有 Segment 进行计算，就会变得非常昂贵。
+
+其实，分离锁也限制了 Map 的初始化等操作。所以，ConcurrentHashMap 的实现是通过重试机制（RETRIES_BEFORE_LOCK，指定重试次数 2），来试图获得可靠值。如果没有监控到发生变化（通过对比 Segment.modCount），就直接返回，否则获取锁进行操作。
+
+**在 Java 8 和之后的版本中，ConcurrentHashMap 发生了哪些变化呢？**
+
+- 总体结构上，它的内部存储变得和我在专栏上一讲介绍的 HashMap 结构非常相似，同样是大的桶（bucket）数组，然后内部也是一个个所谓的链表结构（bin），同步的粒度要更细致一些。
+- 其内部仍然有 Segment 定义，但仅仅是为了保证序列化时的兼容性而已，不再有任何结构上的用处。
+- 因为不再使用 Segment，初始化操作大大简化，修改为 lazy-load 形式，这样可以有效避免初始开销，解决了老版本很多人抱怨的这一点。
+- 数据存储利用 volatile 来保证可见性。
+- 使用 CAS 等操作，在特定场景进行无锁并发操作。
+- 使用 Unsafe、LongAdder 之类底层手段，进行极端情况的优化。
+
+Java 8 后ConcurrentHashMap的put函数
+
+```java
+
+final V putVal(K key, V value, boolean onlyIfAbsent) { if (key == null || value == null) throw new NullPointerException();
+    int hash = spread(key.hashCode());
+    int binCount = 0;
+    for (Node<K,V>[] tab = table;;) {
+        Node<K,V> f; int n, i, fh; K fk; V fv;
+        if (tab == null || (n = tab.length) == 0)
+            tab = initTable();
+        else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
+            // 利用CAS去进行无锁线程安全操作，如果bin是空的
+            if (casTabAt(tab, i, null, new Node<K,V>(hash, key, value)))
+                break; 
+        }
+        else if ((fh = f.hash) == MOVED)
+            tab = helpTransfer(tab, f);
+        else if (onlyIfAbsent // 不加锁，进行检查
+                 && fh == hash
+                 && ((fk = f.key) == key || (fk != null && key.equals(fk)))
+                 && (fv = f.val) != null)
+            return fv;
+        else {
+            V oldVal = null;
+            synchronized (f) {
+                   // 细粒度的同步修改操作... 
+                }
+            }
+            // Bin超过阈值，进行树化
+            if (binCount != 0) {
+                if (binCount >= TREEIFY_THRESHOLD)
+                    treeifyBin(tab, i);
+                if (oldVal != null)
+                    return oldVal;
+                break;
+            }
+        }
+    }
+    addCount(1L, binCount);
+    return null;
+}
+
+```
+
+初始化操作实现在 initTable 里面，这是一个典型的 CAS 使用场景，利用 volatile 的 sizeCtl 作为互斥手段：如果发现竞争性的初始化，就 spin 在那里，等待条件恢复；否则利用 CAS 设置排他标志。如果成功则进行初始化；否则重试。
+
+```java
+
+private final Node<K,V>[] initTable() {
+    Node<K,V>[] tab; int sc;
+    while ((tab = table) == null || tab.length == 0) {
+        // 如果发现冲突，进行spin等待
+        if ((sc = sizeCtl) < 0)
+            Thread.yield(); 
+        // CAS成功返回true，则进入真正的初始化逻辑
+        else if (U.compareAndSetInt(this, SIZECTL, sc, -1)) {
+            try {
+                if ((tab = table) == null || tab.length == 0) {
+                    int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
+                    @SuppressWarnings("unchecked")
+                    Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n];
+                    table = tab = nt;
+                    sc = n - (n >>> 2);
+                }
+            } finally {
+                sizeCtl = sc;
+            }
+            break;
+        }
+    }
+    return tab;
+}
+
+```
+
+
+
+## 第11讲 | Java提供了哪些IO方式？ NIO如何实现多路复用？
+
+> 典型回答
+
+Java IO 方式有很多种，基于不同的 IO 抽象模型和交互方式，可以进行简单区分。
+
+首先，传统的 java.io 包，它基于流模型实现，提供了我们最熟知的一些 IO 功能，比如 File 抽象、输入输出流等。交互方式是同步、阻塞的方式，也就是说，在读取输入流或者写入输出流时，在读、写动作完成之前，线程会一直阻塞在那里，它们之间的调用是可靠的线性顺序。
+
+java.io 包的好处是代码比较简单、直观，缺点则是 IO 效率和扩展性存在局限性，容易成为应用性能的瓶颈。
+
+很多时候，人们也把 java.net 下面提供的部分网络 API，比如 Socket、ServerSocket、HttpURLConnection 也归类到同步阻塞 IO 类库，因为网络通信同样是 IO 行为。
+
+第二，在 Java  1.4 中引入了 NIO 框架（java.nio 包），提供了 Channel、Selector、Buffer 等新的抽象，可以构建多路复用的、同步非阻塞 IO 程序，同时提供了更接近操作系统底层的高性能数据操作方式。
+
+第三，在 Java 7 中，NIO 有了进一步的改进，也就是 NIO 2，引入了异步非阻塞 IO 方式，也有很多人叫它 AIO（Asynchronous IO）。异步 IO 操作基于事件和回调机制，可以简单理解为，应用操作直接返回，而不会阻塞在那里，当后台处理完成，操作系统会通知相应线程进行后续工作。
+
+> 知识扩展
+
+首先，需要澄清一些基本概念：
+
+- 区分同步或异步（synchronous/asynchronous）。简单来说，同步是一种可靠的有序运行机制，当我们进行同步操作时，后续的任务是等待当前调用返回，才会进行下一步；而异步则相反，其他任务不需要等待当前调用返回，通常依靠事件、回调等机制来实现任务间次序关系。
+- 区分阻塞与非阻塞（blocking/non-blocking）。在进行阻塞操作时，当前线程会处于阻塞状态，无法从事其他任务，只有当条件就绪才能继续，比如 ServerSocket 新连接建立完毕，或数据读取、写入操作完成；而非阻塞则是不管 IO 操作是否结束，直接返回，相应操作在后台继续处理。
+
+
+
+IO的一些基本概念：
+
+- IO 不仅仅是对文件的操作，网络编程中，比如 Socket 通信，都是典型的 IO 操作目标。
+- 输入流、输出流（InputStream/OutputStream）是用于读取或写入字节的，例如操作图片文件。
+- 而 Reader/Writer 则是用于操作字符，增加了字符编解码等功能，适用于类似从文件中读取或者写入文本信息。本质上计算机操作的都是字节，不管是网络通信还是文件读取，Reader/Writer 相当于构建了应用逻辑和原始数据之间的桥梁。
+- BufferedOutputStream 等带缓冲区的实现，可以避免频繁的磁盘读写，进而提高 IO 处理效率。这种设计利用了缓冲区，将批量数据进行一次操作，但在使用中千万别忘了 flush。
+- 很多 IO 工具类都实现了 Closeable 接口，因为需要进行资源的释放。比如，打开 FileInputStream，它就会获取相应的文件描述符（FileDescriptor），需要利用 try-with-resources、 try-finally 等机制保证 FileInputStream 被明确关闭，进而相应文件描述符也会失效，否则将导致资源无法被释放。
+
+![img](image/javaPoint/IO类.png)
+
+1、Java NIO概览
 
