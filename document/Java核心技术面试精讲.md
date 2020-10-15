@@ -1260,3 +1260,341 @@ IO的一些基本概念：
 
 1、Java NIO概览
 
+首先，熟悉一下 NIO 的主要组成部分：
+
+- Buffer，高效的数据容器，除了布尔类型，所有原始数据类型都有相应的 Buffer 实现
+- Channel，类似在 Linux 之类操作系统上看到的文件描述符，是 NIO 中被用来支持批量式 IO 操作的一种抽象。
+- File 或者 Socket，通常被认为是比较高层次的抽象，而 Channel 则是更加操作系统底层的一种抽象，这也使得 NIO 得以充分利用现代操作系统底层机制，获得特定场景的性能优化，例如，DMA（Direct Memory Access）等。不同层次的抽象是相互关联的，我们可以通过 Socket 获取 Channel，反之亦然。
+- Selector，是 NIO 实现多路复用的基础，它提供了一种高效的机制，可以检测到注册在 Selector 上的多个 Channel 中，是否有 Channel 处于就绪状态，进而实现了单线程对多 Channel 的高效管理。
+
+2、NIO能够解决什么问题？
+
+面我通过一个典型场景，来分析为什么需要 NIO，为什么需要多路复用。设想，我们需要实现一个服务器应用，只简单要求能够同时服务多个客户端请求即可。
+
+使用 java.io 和 java.net 中的同步、阻塞式 API，可以简单实现
+
+```java
+
+public class DemoServer extends Thread {
+    private ServerSocket serverSocket;
+    public int getPort() {
+        return  serverSocket.getLocalPort();
+    }
+    public void run() {
+        try {
+            serverSocket = new ServerSocket(0);
+            while (true) {
+                Socket socket = serverSocket.accept();
+                RequestHandler requestHandler = new RequestHandler(socket);
+                requestHandler.start();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (serverSocket != null) {
+                try {
+                    serverSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                ;
+            }
+        }
+    }
+    public static void main(String[] args) throws IOException {
+        DemoServer server = new DemoServer();
+        server.start();
+        try (Socket client = new Socket(InetAddress.getLocalHost(), server.getPort())) {
+            BufferedReader bufferedReader = new BufferedReader(new                   InputStreamReader(client.getInputStream()));
+            bufferedReader.lines().forEach(s -> System.out.println(s));
+        }
+    }
+ }
+// 简化实现，不做读取，直接发送字符串
+class RequestHandler extends Thread {
+    private Socket socket;
+    RequestHandler(Socket socket) {
+        this.socket = socket;
+    }
+    @Override
+    public void run() {
+        try (PrintWriter out = new PrintWriter(socket.getOutputStream());) {
+            out.println("Hello world!");
+            out.flush();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+ }
+
+```
+
+其实现要点是：
+
+- 服务器端启动 ServerSocket，端口 0 表示自动绑定一个空闲端口。
+- 调用 accept 方法，阻塞等待客户端连接。
+
+- 利用 Socket 模拟了一个简单的客户端，只进行连接、读取、打印。
+- 当连接建立后，启动一个单独线程负责回复客户端请求。
+
+
+
+大家知道 Java 语言目前的线程实现是比较重量级的，启动或者销毁一个线程是有明显开销的，每个线程都有单独的线程栈等结构，需要占用非常明显的内存，所以，每一个 Client 启动一个线程似乎都有些浪费。
+
+那么，稍微修正一下这个问题，我们引入线程池机制来避免浪费。
+
+```java
+
+serverSocket = new ServerSocket(0);
+executor = Executors.newFixedThreadPool(8);
+ while (true) {
+    Socket socket = serverSocket.accept();
+    RequestHandler requestHandler = new RequestHandler(socket);
+    executor.execute(requestHandler);
+}
+
+```
+
+使用线程池之后，就可以避免频繁的创建和销毁线程，减少开销。通过一个固定大小的线程池来管理线程。这种工作方式可以参考下图：
+
+![img](image/javaPoint/socket使用线程池.png)
+
+
+
+在连接数量不算多，只有最多几百个连接应用时，这种模式还是可以正常工作的。但是如果数量急剧上升，这种线程池的使用就有了限制。因为线程上下文切换开销会在高并发的时候变的非常明显，这就是同步阻塞式的低扩展劣势。
+
+NIO引入的多路复用机制，则提供了另外的思路
+
+```java
+
+public class NIOServer extends Thread {
+    public void run() {
+        try (Selector selector = Selector.open();
+             ServerSocketChannel serverSocket = ServerSocketChannel.open();) {// 创建Selector和Channel
+            //绑定channel的监听端口号
+            serverSocket.bind(new InetSocketAddress(InetAddress.getLocalHost(), 8888));
+            //设置channel为非阻塞模式
+            serverSocket.configureBlocking(false);
+            // 注册到Selector，并说明关注点
+            serverSocket.register(selector, SelectionKey.OP_ACCEPT);
+            while (true) {
+                selector.select();// 阻塞等待就绪的Channel，这是关键点之一
+                Set<SelectionKey> selectedKeys = selector.selectedKeys();
+                Iterator<SelectionKey> iter = selectedKeys.iterator();
+                while (iter.hasNext()) {
+                    SelectionKey key = iter.next();
+                   // 生产系统中一般会额外进行就绪状态检查
+                    sayHelloWorld((ServerSocketChannel) key.channel());
+                    iter.remove();
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+    private void sayHelloWorld(ServerSocketChannel server) throws IOException {
+        try (SocketChannel client = server.accept();) {          client.write(Charset.defaultCharset().encode("Hello world!"));
+        }
+    }
+   // 省略了与前面类似的main
+}
+```
+
+这个非常精简的样例掀开了 NIO 多路复用的面纱，我们可以分析下主要步骤和元素：
+
+- 首先，通过Selector.open()创建一个Selector，作为类似调度员的角色
+- 然后，创建一个 ServerSocketChannel，并且向 Selector 注册，通过指定 SelectionKey.OP_ACCEPT，告诉调度员，它关注的是新的连接请求。
+- 注意，为什么我们要明确配置非阻塞模式呢？这是因为阻塞模式下，注册操作是不允许的，会抛出 IllegalBlockingModeException 异常。
+- Selector 阻塞在 select 操作，当有 Channel 发生接入请求，就会被唤醒。
+- 在 sayHelloWorld 方法中，通过 SocketChannel 和 Buffer 进行数据操作，在本例中是发送了一段字符串。
+
+可以看到，在前面两个样例中，IO 都是同步阻塞模式，所以需要多线程以实现多任务处理。而 NIO 则是利用了单线程轮询事件的机制，通过高效地定位就绪的 Channel，来决定做什么，仅仅 select 阶段是阻塞的，可以有效避免大量客户端连接时，频繁线程切换带来的问题，应用的扩展能力有了非常大的提高。下面这张图对这种实现思路进行了形象地说明。
+
+![img](image/javaPoint/NIO多路复用.png)
+
+在 Java 7 引入的 NIO 2 中，又增添了一种额外的异步 IO 模式，利用事件和回调，处理 Accept、Read 等操作。 AIO 实现看起来是类似这样子：
+
+```java
+
+AsynchronousServerSocketChannel serverSock =  AsynchronousServerSocketChannel.open().bind(sockAddr);
+serverSock.accept(serverSock, new CompletionHandler<>() { //为异步操作指定CompletionHandler回调函数
+    @Override
+    public void completed(AsynchronousSocketChannel sockChannel, AsynchronousServerSocketChannel serverSock) {
+        serverSock.accept(serverSock, this);
+        // 另外一个 write（sock，CompletionHandler{}）
+        sayHelloWorld(sockChannel, Charset.defaultCharset().encode
+                ("Hello World!"));
+    }
+  // 省略其他路径处理方法...
+});
+```
+
+- 基本抽象很相似，AsynchronousServerSocketChannel 对应于上面例子中的 ServerSocketChannel；AsynchronousSocketChannel 则对应 SocketChannel。
+- 业务逻辑的关键在于，通过指定 CompletionHandler 回调接口，在 accept/read/write 等关键节点，通过事件机制调用，这是非常不同的一种编程思路。
+
+> 针对问题的理解
+
+1、Java提供了哪些IO方式？
+
+- java.io包，最初始的IO交互方式，同步阻塞式交互，顺序执行
+- java.net中的部分API，例如Socket，ServerSocket等，网络IO方式，同样是同步阻塞式交互
+- java.nio NIO，提供了NIO的三大核心组件，Channel，Selector，Buffer。NIO是可以多路复用的，同步非阻塞式的IO程序。同时提供了更加接近操作系统底层的高性能数据操作方式。
+
+2、NIO如何实现多路复用的？
+
+- NIO的三个核心组件Selector，Channel，Buffer
+- Selector允许单个线程处理个Channel，应用程序打开很多连接通道，就可以只用一个线程就可以处理多个连接
+
+![Java NIO：选择器](image/javaPoint/overview-selectors.png)
+
+NIO相关文档：http://tutorials.jenkov.com/java-nio/channels.html
+
+
+
+## 第12讲 | Java有几种文件拷贝方式？哪一种最高效？
+
+> 典型回答
+
+Java有多种比较典型的文件拷贝实现方式，比如：
+
+利用java.io类库，直接为源文件构建一个FileInputStream读取，然后再为目标文件构建一个FileOutputStream写入。
+
+```java
+
+public static void copyFileByStream(File source, File dest) throws
+        IOException {
+    try (InputStream is = new FileInputStream(source);
+         OutputStream os = new FileOutputStream(dest);){
+        byte[] buffer = new byte[1024];
+        int length;
+        while ((length = is.read(buffer)) > 0) {
+            os.write(buffer, 0, length);
+        }
+    }
+ }
+```
+
+或者，利用java.io类库提供的transferTo或者transferFrom方法实现
+
+```java
+
+public static void copyFileByChannel(File source, File dest) throws
+        IOException {
+    try (FileChannel sourceChannel = new FileInputStream(source)
+            .getChannel();
+         FileChannel targetChannel = new FileOutputStream(dest).getChannel
+                 ();){
+        for (long count = sourceChannel.size() ;count>0 ;) {
+            long transferred = sourceChannel.transferTo(
+                    sourceChannel.position(), count, targetChannel);            sourceChannel.position(sourceChannel.position() + transferred);
+            count -= transferred;
+        }
+    }
+ }
+
+```
+
+当然，Java 标准类库本身已经提供了几种 Files.copy 的实现。对于 Copy 的效率，这个其实与操作系统和配置等情况相关，总体上来说，NIO transferTo/From 的方式可能更快，因为它更能利用现代操作系统底层机制，避免不必要拷贝和上下文切换。
+
+
+
+> 知识扩展
+
+1、拷贝实现机制分析
+
+首先需要先理解用户态空间（User Space）和内核态空间（Kernel Space），这是操作系统层面的基本概念。
+
+- 操作系统内核，硬件驱动等运行在内核态空间，具有相对高的特权；
+
+- 而用户态空间，则是给普通应用和服务使用的。
+
+当我们使用输入输出流进行读写时，实际上是进行了多次上下文切换。比如读取数据的时候，将在内核态将数据从磁盘读取到内核缓存，再切换到用户态将数据从内核缓存读取到用户缓存。
+
+![img](image/javaPoint/拷贝机制.png)
+
+所以输入输出流进行读写的方式，会带来一定的开销，可能会降低IO的效率。
+
+而基于NIO transferTo的实现方式，在Linux和Unix上，则会使用到零拷贝技术。数据传输并不需要用户态的参与，省去了上下文切换的开销和不必要的内存拷贝，进而提高拷贝的性能。
+
+注意，transferTo 不仅仅是可以用在文件拷贝中，与其类似的，例如读取磁盘文件，然后进行 Socket 发送，同样可以享受这种机制带来的性能和扩展性提高。
+
+transferTo 的传输过程是：
+
+![img](image/javaPoint/transferTo传输过程.png)
+
+2、Java IO/NIO 源码结构
+
+Java标准库也提供了文件拷贝方式（java.nio.file.Files.copy）
+
+标准库提供的copy方法大概有三种
+
+```java
+public static Path copy(Path source, Path target, CopyOption... options)
+    throws IOException
+```
+
+```java
+public static long copy(InputStream in, Path target, CopyOption... options)
+    throws IOException
+```
+
+```java
+public static long copy(Path source, OutputStream out) 
+throws IOException
+```
+
+可以看到，copy 不仅仅是支持文件之间操作，没有人限定输入输出流一定是针对文件的，这是两个很实用的工具方法。
+
+如何提高类似拷贝等IO操作的性能：
+
+- 在程序中，使用缓存等机制，合理减少IO次数（在网络通信中，如TCP传输，windows大小也可以看作是类似思路）。
+- 使用transferTo机制，减少上下文切换和额外IO操作
+- 尽量减少不必要的转换过程，比如编解码；对象序列化和反序列化，比如操作文本文件或者网络通信，如果不是过程中需要使用文本信息，可以考虑不要将二进制信息转换成字符串，直接传输二进制信息。
+
+3、掌握NIO Buffer
+
+我在上一讲提到 Buffer 是 NIO 操作数据的基本工具，Java 为每种原始数据类型都提供了相应的 Buffer 实现（布尔除外），所以掌握和使用 Buffer 是十分必要的，尤其是涉及 Direct  Buffer 等使用，因为其在垃圾收集等方面的特殊性，更要重点掌握
+
+![img](image/javaPoint/NIO_Buffer.png)
+
+Buffer 有几个基本属性：
+
+- capacity，它反映这个 Buffer 到底有多大，也就是数组的长度。
+- position，要操作的数据起始位置。
+- limit，相当于操作的限额。在读取或者写入时，limit 的意义很明显是不一样的。比如，读取操作时，很可能将 limit 设置到所容纳数据的上限；而在写入时，则会设置容量或容量以下的可写限度。
+- mark，记录上一次 postion 的位置，默认是 0，算是一个便利性的考虑，往往不是必须的。
+
+Buffer的基本操作：
+
+- 我们创建了一个 ByteBuffer，准备放入数据，capacity 当然就是缓冲区大小，而 position 就是 0，limit 默认就是 capacity 的大小。
+- 当我们写入几个字节的数据时，position 就会跟着水涨船高，但是它不可能超过 limit 的大小。
+- 如果我们想把前面写入的数据读出来，需要调用 flip 方法，将 position 设置为 0，limit 设置为以前的 position 那里。
+- 如果还想从头再读一遍，可以调用 rewind，让 limit 不变，position 再次设置为 0。
+
+
+
+4、Direct Buffer和垃圾收集
+
+两种特别的 Buffer。
+
+- Direct Buffer：如果我们看 Buffer 的方法定义，你会发现它定义了 isDirect() 方法，返回当前 Buffer 是否是 Direct 类型。这是因为 Java 提供了堆内和堆外（Direct）Buffer，我们可以以它的 allocate 或者 allocateDirect 方法直接创建。
+- MappedByteBuffer：它将文件按照指定大小直接映射为内存区域，当程序访问这个内存区域时将直接操作这块儿文件数据，省去了将数据从内核空间向用户空间传输的损耗。我们可以使用FileChannel.map创建 MappedByteBuffer，它本质上也是种 Direct Buffer
+
+Direct Buffer的理解：https://blog.csdn.net/mc90716/article/details/80041757
+
+在实际使用中，Java 会尽量对 Direct Buffer 仅做本地 IO 操作，对于很多大数据量的 IO 密集操作，可能会带来非常大的性能优势，因为：
+
+- Direct Buffer 生命周期内内存地址都不会再发生更改，进而内核可以安全地对其进行访问，很多 IO 操作会很高效。
+- 减少了堆内对象存储的可能额外维护工作，所以访问效率可能有所提高。
+
+
+
+
+
+## 第13讲 | 谈谈接口和抽象类有什么区别？
+
+> 典型回答
+
+接口是对行为的抽象，它是抽象方法的集合，利用接口可以达到 API 定义和实现分离的目的。接口，不能实例化；不能包含任何非常量成员，任何 field 都是隐含着 public static final 的意义；同时，没有非静态方法实现，也就是说要么是抽象方法，要么是静态方法。Java 标准类库中，定义了非常多的接口，比如 java.util.List。
+
+抽象类是不能实例化的类，用 abstract 关键字修饰 class，其目的主要是代码重用。除了不能实例化，形式上和一般的 Java 类并没有太大区别，可以有一个或者多个抽象方法，也可以没有抽象方法。抽象类大多用于抽取相关 Java 类的共用方法实现或者是共同成员变量，然后通过继承的方式达到代码复用的目的。Java 标准库中，比如 collection 框架，很多通用部分就被抽取成为抽象类，例如 java.util.AbstractList。

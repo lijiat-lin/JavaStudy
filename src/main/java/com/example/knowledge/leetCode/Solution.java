@@ -1,11 +1,24 @@
 package com.example.knowledge.leetCode;
 
-import java.lang.ref.PhantomReference;
-import java.lang.ref.Reference;
-import java.lang.ref.ReferenceQueue;
-import java.util.HashSet;
-import java.util.Hashtable;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
+
+
+class ListNode {
+    int val;
+    ListNode next;
+
+    ListNode() {
+    }
+
+    ListNode(int val) {
+        this.val = val;
+    }
+
+    ListNode(int val, ListNode next) {
+        this.val = val;
+        this.next = next;
+    }
+}
 
 /**
  * @program: knowledge
@@ -18,15 +31,22 @@ public class Solution {
     /**
      * 给定一个字符串 s，找到 s 中最长的回文子串。你可以假设 s 的最大长度为 1000。
      * 回文子串：头尾相同
+     *
+     * 解题思路：
+     * 动态规划解法：
+     *  当一个字符串的左右两端的字符相同，并且它去除左右两端字符的子串是回文字符串，那么这个字符串就是回文字符串
      * @param s
      * @return
      */
     public static  String longestPalindrome(String s) {
         int n = s.length();
+        //设置一个二维的boolean数组，标识字符串的某一段子串是否是回文字符串
         boolean[][] dp = new boolean[n][n];
 
         String ans = "";
+        //字符串一共有n和不同长度的子串
         for (int i = 0; i < n; ++i) {
+            //循环获取字符串中长度为i的字符串
             for (int j = 0; j+i < n; ++j) {
                 int k = j+i;
                 if (i==0){
@@ -268,11 +288,202 @@ public class Solution {
 
     }
 
+
+
+    /**
+     *给定一个链表，两两交换其中相邻的节点，并返回交换后的链表。
+     * 你不能只是单纯的改变节点内部的值，而是需要实际的进行节点交换。
+     * 给定 1->2->3->4, 你应该返回 2->1->4->3.
+     * 解析:
+     * 如果是头结点则将
+     * @param head
+     * @return
+     */
+    public static ListNode swapPairs(ListNode head) {
+        ListNode node = head;
+        if(head==null || head.next == null){
+            return null;
+        }
+
+        ListNode tmp = node.next;
+        node.next = node.next.next;
+        tmp.next = node;
+        head = tmp;
+
+        while (node.next!=null&&node.next.next!=null){
+            ListNode tmp1 = node.next;
+            node.next = node.next.next;
+            tmp1.next = node.next.next;
+            node.next.next = tmp1;
+            node = node.next.next;
+        }
+        return head;
+    }
+
+
+    /**
+     * 给定仅有小写字母组成的字符串数组 A，返回列表中的每个字符串中都显示的全部字符（包括重复字符）组成的列表。
+     * 例如，如果一个字符在每个字符串中出现 3 次，但不是 4 次，则需要在最终答案中包含该字符 3 次。
+     *
+     * 你可以按任意顺序返回答案。
+     *
+     * 示例：
+     * 输入：["bella","label","roller"]
+     * 输出：["e","l","l"]
+     *
+     * 解析：
+     * 循环A数组，循环每个字符串中的字符，使用整数数组记录字符出现的次数。
+     * @param A
+     * @return
+     */
+    public static List<String> commonChars(String[] A) {
+        if (A==null){
+            return null;
+        }
+        List<String> list = new ArrayList<>();
+        int[] minFreq = new int[26];
+        Arrays.fill(minFreq,Integer.MAX_VALUE);
+        for(String word : A){
+            int[] freq = new int[26];
+            for (int i = 0; i < word.length(); i++) {
+                char c = word.charAt(i);
+                ++freq[c-'a'];
+            }
+            for (int i = 0; i < 26; i++) {
+                minFreq[i] = Math.min(minFreq[i],freq[i]);
+            }
+        }
+
+        for (int i = 0; i < 26; i++) {
+            for (int j = 0; j < minFreq[i]; j++) {
+                list.add(String.valueOf((char)(i+'a')));
+            }
+        }
+        return list;
+    }
+
+    /**
+     * 给定一个完美二叉树，其所有叶子节点都在同一层，每个父节点都有两个子节点。二叉树定义如下：
+     * 填充它的每个 next 指针，让这个指针指向其下一个右侧节点。如果找不到下一个右侧节点，则将 next 指针设置为 NULL。
+     *
+     * 解析：
+     * 完全二叉树的节点，按照层次遍历放置到Node数组中
+     * 节点如果是父节点的左节点，则它的next是父节点的右节点。
+     * 节点如果是父节点的右节点，则它的next节点是父节点的next节点的左节点，如果父节点的next节点为null，那么这个节点的next也是null
+     *
+     *
+     * 先操作节点本身，然后操作它的右节点，最后操作它的左节点
+     * @param root
+     * @return
+     */
+    public static Node connect(Node root) {
+
+        if(root==null){
+            return null;
+        }
+        Node node = root;
+        if (node.left!=null&&node.right!=null){
+            node.left.next = node.right;
+            if (node.next==null){
+                node.right.next = null;
+            }else{
+                node.right.next = node.next.left;
+            }
+        }
+        connect(node.right);
+        connect(node.left);
+        return node;
+    }
+
+    public static List<List<Integer>> levelOrder(Node root){
+        if (root == null){
+            return new ArrayList<>();
+        }
+        List<List<Integer>> res = new ArrayList<>();
+        Queue<Node> queue = new LinkedList<>();
+        queue.add(root);
+        while (!queue.isEmpty()){
+            int count = queue.size();
+            List<Integer> list = new ArrayList<>();
+            while (count>0){
+                Node node = queue.poll();
+                list.add(node.val);
+                if(node.left!=null){
+                    queue.add(node.left);
+                }
+                if (node.right!=null){
+                    queue.add(node.right);
+                }
+                count--;
+            }
+
+            res.add(list);
+        }
+        return res;
+    }
+
+
+    /**
+     * 给你一棵所有节点为非负值的二叉搜索树，请你计算树中任意两节点的差的绝对值的最小值。
+     *
+     * 解题思路：
+     * 二叉搜索树有个性质为二叉搜索树中序遍历得到的值序列是递增有序的
+     *
+     * 需要先遍历二叉树的所有节点，然后进行排序，遍历数组获取最小差值。
+     * @param root
+     * @return
+     */
+
+    static int pre;
+    static int res;
+    public static int getMinimumDifference(TreeNode root) {
+        res = Integer.MAX_VALUE;
+        pre = -1;
+        inOrder(root);
+        return res;
+    }
+    public static void inOrder(TreeNode node){
+        if (node==null){
+            return;
+        }
+        inOrder(node.left);
+        if(pre == -1){
+            pre = node.val;
+        }else{
+            res = Math.min(res,node.val-pre);
+            pre = node.val;
+        }
+        inOrder(node.right);
+    }
     public static void main(String[] args) {
 
-        int[][] matrix = new int[][]{{0,1,2,0},{3,4,5,2},{1,3,1,5}};
-        soutMatrix(matrix);
-        setZeroes(matrix);
-        soutMatrix(matrix);
     }
 }
+
+ class TreeNode {
+     int val;
+     TreeNode left;
+     TreeNode right;
+     TreeNode(int x) { val = x; }
+ }
+
+class Node {
+    public int val;
+    public Node left;
+    public Node right;
+    public Node next;
+
+    public Node() {}
+
+    public Node(int _val) {
+        val = _val;
+    }
+
+    public Node(int _val, Node _left, Node _right, Node _next) {
+        val = _val;
+        left = _left;
+        right = _right;
+        next = _next;
+    }
+};
+
