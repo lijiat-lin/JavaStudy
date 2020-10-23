@@ -33,7 +33,7 @@ public class ThreadPoolExecutorDemo {
                 new ArrayBlockingQueue<>(QUEUE_CAPACITY),
                 new ThreadPoolExecutor.CallerRunsPolicy()
         );
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 20; i++) {
             //创建WorkerThread对象（WorkerThread实现了Runnable接口）
             Runnable worker = new MyRunnable(""+i);
             executor.execute(worker);

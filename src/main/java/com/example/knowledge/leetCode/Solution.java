@@ -1,5 +1,7 @@
 package com.example.knowledge.leetCode;
 
+import org.apache.logging.log4j.util.Strings;
+
 import java.util.*;
 
 
@@ -455,7 +457,229 @@ public class Solution {
         }
         inOrder(node.right);
     }
+
+
+    /**
+     * 给定 S 和 T 两个字符串，当它们分别被输入到空白的文本编辑器后，判断二者是否相等，并返回结果。 # 代表退格字符。
+     *
+     * 注意：如果对空文本输入退格字符，文本继续为空。
+     *
+     * 输入：S = "ab#c", T = "ad#c"
+     * 输出：true
+     * 解释：S 和 T 都会变成 “ac”。
+     *
+     * 你可以用 O(N) 的时间复杂度和 O(1) 的空间复杂度解决该问题吗？
+     * 解题思路：
+     * 1.获取两个字符串最终的结果进行比较   时间复杂度O(N) 空间复杂度O(N)
+     * @param S
+     * @param T
+     * @return
+     */
+    public static boolean backspaceCompare(String S, String T) {
+
+        StringBuilder stringBuilder = new StringBuilder();
+        int index = 0;
+        for (int i = 0; i < S.length(); i++) {
+            if('#'== S.charAt(i)){
+                if(index!=0){
+                    stringBuilder.deleteCharAt(index-1);
+                    index = index-1;
+                }
+
+            }else{
+                stringBuilder.append(S.charAt(i));
+                index++;
+            }
+        }
+        StringBuilder stringBuilder1 = new StringBuilder();
+        int index1 = 0;
+        for (int i = 0; i < T.length(); i++) {
+            if('#'== T.charAt(i)){
+                if(index1!=0){
+                    stringBuilder1.deleteCharAt(index1-1);
+                    index1 = index1-1;
+                }
+            }else{
+                stringBuilder1.append(T.charAt(i));
+                index1++;
+            }
+        }
+
+        if (stringBuilder.toString().equals(stringBuilder1.toString())){
+            return true;
+        }else{
+            return false;
+        }
+
+    }
+
+    /**
+     * 小扣出去秋游，途中收集了一些红叶和黄叶，他利用这些叶子初步整理了一份秋叶收藏集 leaves， 字符串 leaves 仅包含小写字符 r 和 y， 其中字符 r 表示一片红叶，字符 y 表示一片黄叶。
+     * 出于美观整齐的考虑，小扣想要将收藏集中树叶的排列调整成「红、黄、红」三部分。每部分树叶数量可以不相等，但均需大于等于 1。每次调整操作，小扣可以将一片红叶替换成黄叶或者将一片黄叶替换成红叶。请问小扣最少需要多少次调整操作才能将秋叶收藏集调整完毕。
+     *
+     * 输入：leaves = "rrryyyrryyyrr"
+     * 输出：2
+     * 解释：调整两次，将中间的两片红叶替换成黄叶，得到 "rrryyyyyyyyrr"
+     *
+     * @param leaves
+     * @return
+     */
+    public int minimumOperations(String leaves) {
+
+
+        return 0;
+    }
+
+
+    /**
+     * 给定一个按非递减顺序排序的整数数组 A，返回每个数字的平方组成的新数组，要求也按非递减顺序排序。
+     * 输入：[-4,-1,0,3,10]
+     * 输出：[0,1,9,16,100]
+     *
+     * @param A
+     * @return
+     */
+    public static int[] sortedSquares(int[] A) {
+        int[] result = new int[A.length];
+        for (int i = 0; i < A.length; i++) {
+            if(A[i]<0){
+                result[i] = (int)Math.pow(0-A[i],2);
+            }else{
+                result[i] = (int)Math.pow(A[i],2);
+            }
+        }
+        Arrays.sort(result);
+        return result;
+    }
+
+    /**
+     * 给定一个单链表 L：L0→L1→…→Ln-1→Ln ，
+     * 将其重新排列后变为： L0→Ln→L1→Ln-1→L2→Ln-2→…
+     *
+     * 你不能只是单纯的改变节点内部的值，而是需要实际的进行节点交换。
+     *
+     * 解题思路：
+     * 遍历链表将数据存储在数组，遍历数组，重新建立节点间的关系  时间复杂度O(N) 空间复杂度O(N)
+     * @param head
+     */
+    public static void reorderList(ListNode head) {
+        ListNode node = head;
+        int count = 0;
+        while (node!=null){
+            count++;
+            node = node.next;
+        }
+
+        ListNode[] listNodes = new ListNode[count];
+        node = head;
+        int index = 0;
+        while (node!=null){
+            listNodes[index] = node;
+            node = node.next;
+            index++;
+        }
+
+        for (int i = 0; i < listNodes.length/2; i++) {
+            listNodes[i].next = listNodes[listNodes.length-i-1];
+            listNodes[listNodes.length-i-1].next = listNodes[i+1];
+        }
+        if(count%2 == 0){
+            listNodes[listNodes.length/2].next = null;
+        }else{
+            listNodes[listNodes.length/2].next = null;
+            listNodes[listNodes.length/2+1].next = listNodes[listNodes.length/2];
+        }
+
+        System.out.println(head);
+
+    }
+
+
+    /**
+     * 你的朋友正在使用键盘输入他的名字 name。偶尔，在键入字符 c 时，按键可能会被长按，而字符可能被输入 1 次或多次。
+     *
+     * 你将会检查键盘输入的字符 typed。如果它对应的可能是你的朋友的名字（其中一些字符可能被长按），那么就返回 True。
+     *
+     * 输入：name = "alex", typed = "aaleex"
+     * 输出：true
+     * 解释：'alex' 中的 'a' 和 'e' 被长按。
+     *
+     * @param name
+     * @param typed
+     * @return
+     */
+    public static boolean isLongPressedName(String name, String typed) {
+
+        if(name.length()==0 && typed.length() == 0){
+            return true;
+        }
+        if(name.length()==0 && typed.length() != 0){
+            return false;
+        }
+        if(name.length()!=0 && typed.length() == 0){
+            return false;
+        }
+        if(typed.length()<name.length()) {
+            return false;
+        }
+
+
+        int index = 0;
+        for (int i = 0; i < typed.length(); i++) {
+            if(typed.charAt(i) == name.charAt(index)){
+                if(index<name.length()-1){
+                    index++;
+
+                }
+            }else{
+                if(typed.charAt(i) != name.charAt(index-1) && index >= 1){
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * 字符串 S 由小写字母组成。我们要把这个字符串划分为尽可能多的片段，同一个字母只会出现在其中的一个片段。返回一个表示每个字符串片段的长度的列表。
+     * 输入：S = "ababcbacadefegdehijhklij"
+     * 输出：[9,7,8]
+     * 解释：
+     * 划分结果为 "ababcbaca", "defegde", "hijhklij"。
+     * 解析：
+     * 遍历字符串，获取每一个字符在字符串中的最后一位的位置，
+     * 再遍历字符串，定义截取的字符串
+     * @param S
+     * @return
+     */
+    public static List<Integer> partitionLabels(String S) {
+
+        List<Integer> list = new ArrayList<>();
+        int[] counts = new int[26];
+        for (int i = 0; i < S.length(); i++) {
+            counts[S.charAt(i)-'a'] = i;
+        }
+        int n = -1,m = -1;
+        for (int i = 0; i < S.length(); i++) {
+
+
+            int index = counts[S.charAt(i)-'a'];
+            m = index>m?index:m;
+            if(i == m){
+                list.add(m-n);
+                n = m;
+            }
+        }
+        return list;
+
+    }
     public static void main(String[] args) {
+        List<Integer> list = partitionLabels("a");
+        for (Integer integer : list) {
+            System.out.println(integer);
+        }
+
 
     }
 }

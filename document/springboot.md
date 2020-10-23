@@ -417,3 +417,236 @@ public class MyMvcConfig implements WebMvcConfigurer {
 }
 ```
 
+# 极客时间spring全家桶
+
+## 第二章
+
+### 04 如何配置数据源
+
+> 方式一
+
+- 引入数据库依赖 -- H2
+- 引入JDBC依赖 -- spring-boot-starter-jdbc
+- 获取DataSource Bean 打印信息
+- 也可以通过  /actuator/beans 查看Bean
+  - 需要依赖Actuator
+  - 并且application.properties中需要配置 management.endpoints.web.exposure.include=*
+
+```java
+@SpringBootApplication
+@Slf4j
+public class DataSourceApplication implements CommandLineRunner {
+
+    @Autowired
+    private DataSource dataSource;
+
+    public static void main(String[] args) {
+        SpringApplication.run(DataSourceApplication.class, args);
+    }
+
+    @Override
+    public void run(String... args) throws Exception {
+        showConnection();
+    }
+
+    private void showConnection() throws SQLException{
+        log.info(dataSource.toString());
+        Connection conn = dataSource.getConnection();
+        log.info(conn.toString());
+        conn.close();
+    }
+}
+// 打印出DataSource的信息
+2020-10-22 16:38:43.612  INFO 13848 --- [           main] g.s.d.datasource.DataSourceApplication   : HikariDataSource (HikariPool-1)
+2020-10-22 16:38:43.612  INFO 13848 --- [           main] g.s.d.datasource.DataSourceApplication   : HikariProxyConnection@18357072 wrapping conn0: url=jdbc:h2:mem:69e1b64a-a0f2-4f62-8264-2bc242bbe8a8 user=SA
+```
+
+> 直接配置所需的bean
+
+数据源相关
+
+- DataSource（根据选择的连接池实现决定）
+
+事务相关（可选）
+
+- PlatformTransactionManager（DataSourceTransactionManager）
+- TransactionTemplate
+
+操作相关（可选）
+
+- JdbcTemplate
+
+> SpringBoot 做了哪些配置
+
+**DataSourceAutoConfifiguration** 
+
+- 配置 DataSource
+
+**DataSourceTransactionManagerAutoConfifiguration**
+
+- 配置 DataSourceTransactionManager
+
+**JdbcTemplateAutoConfifiguration** 
+
+- 配置 JdbcTemplate
+
+> 数据源相关的配置属性
+
+通用户
+
+- spring.datasource.url=jdbc:mysql://localhost/test
+- spring.datasource.username=dbuser
+- spring.datasource.password=dbpass
+- spring.datasource.driver-class-name=com.mysql.jdbc.Driver（可选）
+
+初始化内嵌数据库
+
+-  spring.datasource.initialization-mode=embedded|always|never
+- spring.datasource.schema与spring.datasource.data确定初始化SQL文件
+- spring.datasource.platform=hsqldb | h2 | oracle | mysql | postgresql（与前者对应）
+
+### 05 如何配置多数据源
+
+```java
+@SpringBootApplication(exclude = { DataSourceAutoConfiguration.class,
+        DataSourceTransactionManagerAutoConfiguration.class,
+        JdbcTemplateAutoConfiguration.class})
+@Slf4j
+public class DataSourceApplication {
+    
+    public static void main(String[] args) {
+        SpringApplication.run(DataSourceApplication.class, args);
+    }
+
+
+    @Bean
+    @ConfigurationProperties("foo.datasource")
+    public DataSourceProperties fooDataSourceProperties() {
+        return new DataSourceProperties();
+    }
+
+    @Bean
+    public DataSource fooDataSource() {
+        DataSourceProperties dataSourceProperties = fooDataSourceProperties();
+        log.info("foo datasource: {}", dataSourceProperties.getUrl());
+        return dataSourceProperties.initializeDataSourceBuilder().build();
+    }
+
+    @Bean
+    @Resource
+    public PlatformTransactionManager fooTxManager(DataSource fooDataSource) {
+        return new DataSourceTransactionManager(fooDataSource);
+    }
+
+    @Bean
+    @ConfigurationProperties("bar.datasource")
+    public DataSourceProperties barDataSourceProperties() {
+        return new DataSourceProperties();
+    }
+
+    @Bean
+    public DataSource barDataSource() {
+        DataSourceProperties dataSourceProperties = barDataSourceProperties();
+        log.info("bar datasource: {}", dataSourceProperties.getUrl());
+        return dataSourceProperties.initializeDataSourceBuilder().build();
+    }
+
+    @Bean
+    @Resource
+    public PlatformTransactionManager barTxManager(DataSource barDataSource) {
+        return new DataSourceTransactionManager(barDataSource);
+    }
+
+}
+
+```
+
+application.properties
+
+```properties
+management.endpoints.web.exposure.include=*
+
+spring.output.ansi.enabled=ALWAYS
+
+foo.datasource.url=jdbc:h2:mem:foo
+foo.datasource.username=sa
+foo.datasource.password=
+
+bar.datasource.url=jdbc:h2:mem:bar
+bar.datasource.username=sa
+bar.datasource.password=
+```
+
+### 06 好用的连接池 HikariCP
+
+HikariCP 为什么快？
+
+- 字节码级别优化（很多方法通过 **JavaAssist** 生成）
+- 大量小改进
+  - 使用 FastStatementList 代替 ArrayList
+  - 无锁集合 ConcurrentBag
+  - 代理类的优化（比如，用 invokestatic 代替了 invokevirtual）
+
+> 在springboot中的配置
+
+**Spring Boot 2.x** 
+
+- 默认使用 HikariCP
+-  配置 spring.datasource.hikari.* 配置
+
+**Spring Boot 1.x** 
+
+- 默认使用 Tomcat 连接池，需要移除 tomcat-jdbc 依赖
+- spring.datasource.type=com.zaxxer.hikari.HikariDataSource
+
+
+
+### 07 好用的连接池 Alibaba Druid
+
+Druid连接池是阿里巴巴开源的数据库连接池项目。Druid连接池为监控而生，内置强大的监控功能，监控特性不影响性能。功能强大，能防SQL注入，内置Logging能诊断Hack应用行为。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# 注解
+
+> @Slf4j
+
+**如果不想每次都写private final Logger logger = LoggerFactory.getLogger(当前类名.class); 可以用注解@Slf4j;**
+
+- 使用idea首先需要安装Lombok插件;
+- 类上面添加@Sl4j注解,然后使用log打印日志
+
+
+
+
+
+
+
+# 问题
+
+## 数据库中的Schema是什么?
+
+在数据库中，schema（发音 “skee-muh” 或者“skee-mah”，中文叫模式）是数据库的组织和结构，*schemas* 和*schemata*都可以作为复数形式。模式中包含了schema对象，可以是**表**(table)、**列**(column)、**数据类型**(data type)、**视图**(view)、**存储过程**(stored procedures)、**关系**(relationships)、**主键**(primary key)、**外键(**foreign key)等。数据库模式可以用一个可视化的图来表示，它显示了数据库对象及其相互之间的关系
+
+MySQL官方文档指出，从概念上讲，schema（模式）是一组相互关联的数据库对象，如表，表列，列的数据类型，索引，外键等等。但是从物理层面上来说，模式与数据库是同义的。你可以在MySQL的SQL语法中用关键字SCHEMA替代DATABASE，例如使用`CREATE SCHEMA`来代替`CREATE DATABASE`。
+
+## Javaassist 概述
+
+Javassist (JAVA programming ASSISTant) 是在 Java 中编辑字节码的类库;它使 Java 程序能够在运行时定义一个新类, 并在 JVM 加载时修改类文件。
+
+我们常用到的动态特性主要是反射，在运行时查找对象属性、方法，修改作用域，通过方法名称调用方法等。在线的应用不会频繁使用反射，因为反射的性能开销较大。其实还有一种和反射一样强大的特性，但是开销却很低，它就是Javassit。
+
+与其他类似的字节码编辑器不同, Javassist 提供了两个级别的 API: 源级别和字节码级别。 如果用户使用源级 API, 他们可以编辑类文件, 而不知道 Java 字节码的规格。 整个 API 只用 Java 语言的词汇来设计。 您甚至可以以源文本的形式指定插入的字节码; Javassist 在运行中编译它。 另一方面, 字节码级 API 允许用户直接编辑类文件作为其他编辑器。
+

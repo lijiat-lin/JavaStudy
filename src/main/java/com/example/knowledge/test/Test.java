@@ -1,6 +1,7 @@
 package com.example.knowledge.test;
 
 
+import java.util.concurrent.ThreadFactory;
 
 /**
  * @program: knowledge
@@ -11,6 +12,9 @@ package com.example.knowledge.test;
 public class Test {
 
     public static void main(String[] args) throws Exception{
+        int num = 0;
+
+
 
     }
 }
