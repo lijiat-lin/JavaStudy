@@ -1,6 +1,6 @@
 package com.example.knowledge.leetCode;
 
-import org.apache.logging.log4j.util.Strings;
+import net.minidev.json.JSONObject;
 
 import java.util.*;
 
@@ -674,11 +674,322 @@ public class Solution {
         return list;
 
     }
-    public static void main(String[] args) {
-        List<Integer> list = partitionLabels("a");
-        for (Integer integer : list) {
-            System.out.println(integer);
+
+    /**
+     * 给你一个数组 nums，对于其中每个元素 nums[i]，请你统计数组中比它小的所有数字的数目。
+     *
+     * 换而言之，对于每个 nums[i] 你必须计算出有效的 j 的数量，其中 j 满足 j != i 且 nums[j] < nums[i] 。
+     *
+     * 以数组形式返回答案。
+     *
+     * 解析：
+     * 暴力解法：时间复杂度O(N²)
+     * @param nums
+     * @return
+     */
+    public int[] smallerNumbersThanCurrent(int[] nums) {
+        int[] count = new int[101];
+        for (int i = 0; i < nums.length; i++) {
+            count[nums[i]]++;
         }
+
+        int pre = 0;
+        int cur = 0;
+        for (int i = 1; i < count.length; i++) {
+            cur = count[i];
+            count[i] = count[i-1]+pre;
+
+        }
+
+
+        return count;
+
+    }
+
+    /**
+     * 给定两个大小为 m 和 n 的正序（从小到大）数组 nums1 和 nums2。请你找出并返回这两个正序数组的中位数。
+     *
+     * 进阶：你能设计一个时间复杂度为 O(log (m+n)) 的算法解决此问题吗？
+     *
+     * @param nums1
+     * @param nums2
+     * @return
+     */
+    public static double findMedianSortedArrays(int[] nums1, int[] nums2) {
+
+        return 0.00;
+
+    }
+
+    /**
+     * 给定一个二叉树，返回它的 前序 遍历。
+     * @param root
+     * @return
+     */
+    public List<Integer> preorderTraversal(TreeNode root) {
+        List<Integer> list = new ArrayList<>();
+        if(root == null){
+            return list;
+        }
+
+        Deque<TreeNode> stack = new LinkedList<>();
+        TreeNode node = root;
+        while (!stack.isEmpty()||node!=null ){
+            while (node!=null){
+                list.add(node.val);
+                stack.push(node);
+                node = node.left;
+            }
+            node = stack.pop();
+            node = node.right;
+        }
+        return list;
+    }
+
+    public List<String> fizzBuzz(int n) {
+        List<String> strings = new ArrayList<>();
+
+        for (int i = 1; i <= n; i++) {
+            if(i%3 == 0 && i%5 == 0){
+                strings.add("FizzBuzz");
+            }else if(i%3 == 0){
+                strings.add("Fizz");
+            }else if(i%5 == 0){
+                strings.add("Buzz");
+            }else{
+                strings.add(String.valueOf(i));
+            }
+        }
+        return strings;
+    }
+
+
+    /**
+     * 给你一个整数数组 arr，请你帮忙统计数组中每个数的出现次数。
+     *
+     * 如果每个数的出现次数都是独一无二的，就返回 true；否则返回 false。
+     *
+     * 解题思路：
+     * 遍历数组，将每个数字出现的次数存储起来
+     * @param arr
+     * @return
+     */
+    public static boolean uniqueOccurrences(int[] arr) {
+        HashMap<Integer,Integer> map = new HashMap<>(arr.length);
+        for (int i = 0; i < arr.length; i++) {
+            if(map.get(arr[i]) == null){
+                map.put(arr[i],1);
+            }else{
+                map.replace(arr[i],map.get(arr[i])+1);
+            }
+        }
+
+        HashMap<Integer,Integer> count = new HashMap<>(map.size());
+        for(Integer v : map.values()){
+            if(count.containsKey(v)){
+                return false;
+            }else{
+                count.put(v,v);
+            }
+        }
+
+
+        return true;
+    }
+
+    /**
+     * 给定一个用字符数组表示的 CPU 需要执行的任务列表。其中包含使用大写的 A - Z 字母表示的26 种不同种类的任务。任务可以以任意顺序执行，并且每个任务都可以在 1 个单位时间内执行完。
+     * CPU 在任何一个单位时间内都可以执行一个任务，或者在待命状态。
+     *
+     * 然而，两个相同种类的任务之间必须有长度为 n 的冷却时间，因此至少有连续 n 个单位时间内 CPU 在执行不同的任务，或者在待命状态。
+     *
+     * 你需要计算完成所有任务所需要的最短时间。
+     *
+     * 输入：tasks = ["A","A","A","B","B","B"], n = 2
+     *
+     * 输出：8
+     *
+     * 解释：A -> B -> (待命) -> A -> B -> (待命) -> A -> B.
+     *      在本示例中，两个相同类型任务之间必须间隔长度为 n = 2 的冷却时间，而执行一个任务只需要一个单位时间，所以中间出现了（待命）状态。
+     *
+     * 解析：
+     *  1、获取数组中每个任务所包含的数量
+     *  2、根据n的数量给每个任务安排相应的间隔
+     *  3、获取一共有多少个任务种类
+     *  4、
+     *      循环数组数据的数量，每次循环的时候验证以下三种情况：
+     *      第一种情况：任务的类型大于冷却时间n
+     *          - 循环冷却时间n次，将前n个任务的数量减一
+     *          - 数组数据的数量减一
+     *          - 执行时间+1
+     *      第二种情况：任务的类型小于冷却时间n
+     *          - 循环任务类型的时间，将任务的数量减一
+     *          - 数组数据数量减一
+     *          - 循环完后，数据数量不减，执行时间+1
+     *      第三种情况：任务的类型等于冷却时间n
+     *          - 循环冷却时间n次，将n个任务的数量减一
+     *          - 数组数据的数量减一
+     *          - 执行时间+1
+     * @param tasks
+     * @param n
+     * @return
+     */
+    public static int leastInterval(char[] tasks, int n) {
+        int length = tasks.length;
+        HashMap<Character,Integer> count = new HashMap<>(26);
+        for(char c:tasks){
+            if(count.containsKey(c)){
+                count.put(c,count.get(c)+1);
+            }else{
+                count.put(c,1);
+            }
+        }
+        StringBuilder stringBuilder = new StringBuilder();
+        for (Character character: count.keySet()){
+            stringBuilder.append(character);
+        }
+        int times = 0;
+        while (length>0){
+            int taskIndex = 0;
+            for (int i = 0; i < n; i++) {
+                if(taskIndex<stringBuilder.length()){
+                    //任务数量减一
+                    count.replace(stringBuilder.charAt(taskIndex),count.get(stringBuilder.charAt(taskIndex))-1);
+                    //数组数量减一
+                    length--;
+                    //时间+1
+                    times++;
+                    //如果任务数量已经为0，则map移除这个任务，
+                    if(count.get(stringBuilder.charAt(taskIndex)) == 0){
+                        count.remove(stringBuilder.charAt(taskIndex));
+                        stringBuilder.deleteCharAt(taskIndex);
+                    }
+                    taskIndex++;
+                }else{
+                    //时间+1
+                    times++;
+                }
+            }
+        }
+        return times;
+
+    }
+
+    public static int leastInterval1(char[] tasks, int n) {
+        int[] map = new int[26];
+        for (char c: tasks)
+            map[c - 'A']++;
+        Arrays.sort(map);
+        int time = 0;
+        while (map[25] > 0) {
+            int i = 0;
+            while (i <= n) {
+                if (map[25] == 0)
+                    break;
+                if (i < 26 && map[25 - i] > 0)
+                    map[25 - i]--;
+                time++;
+                i++;
+            }
+            Arrays.sort(map);
+        }
+        return time;
+    }
+
+    public static  int leastInterval2(char[] tasks, int n) {
+        int[] map = new int[26];
+        for(char c: tasks){
+            map[c-'A']++;
+        }
+        Arrays.sort(map);
+        int max_val = map[25]-1;
+        int slots = max_val*n;
+        for (int i = 24; i >= 0 && map[i]>0 ; i--) {
+            slots -= Math.min(map[i],max_val);
+        }
+
+        return slots>0?slots+tasks.length:tasks.length;
+    }
+
+    /**
+     * 给定一个二叉树，它的每个结点都存放一个 0-9 的数字，每条从根到叶子节点的路径都代表一个数字。
+     *
+     * 例如，从根到叶子节点路径 1->2->3 代表数字 123。
+     *
+     * 计算从根到叶子节点生成的所有数字之和。
+     *
+     * 说明: 叶子节点是指没有子节点的节点。
+     *
+     * 解析：
+     * 遍历树节点，通过前序遍历得到每一个路径的数字
+     *
+     * @param root
+     * @return
+     */
+    public static int sumNumbers(TreeNode root) {
+        return dfs(root,0);
+    }
+
+    private static int dfs(TreeNode root, int i) {
+        if (root == null){
+            return 0;
+        }
+         int sum = i*10 +root.val;
+        if(root.left == null && root.right == null){
+            return sum;
+        }else{
+            return dfs(root.left,sum)+dfs(root.right,sum);
+        }
+    }
+
+    /**
+     * 给你一个字符串 s 和一个字符规律 p，请你来实现一个支持 '.' 和 '*' 的正则表达式匹配。
+     *
+     * '.' 匹配任意单个字符
+     * '*' 匹配零个或多个前面的那一个元素
+     * 所谓匹配，是要涵盖 整个 字符串 s的，而不是部分字符串。
+     *
+     *  解析：
+     *  定义两个指针分别指向两个字符串，依次向后匹配
+     *  如果字符不同并且字符串P的字符不为'.'和'*' 则返回false
+     *  如果字符不用并且字符串P的字符为'.'，指针依次后移
+     *
+     *
+     * @param s
+     * @param p
+     * @return
+     */
+    public boolean isMatch(String s, String p) {
+
+        if(p.length()>s.length()){
+            return false;
+        }
+        int index = 0;
+        for (int i = 0; i < s.length(); i++) {
+            if(index >= p.length()){
+                return false;
+            }
+            if(s.charAt(i) == p.charAt(index)){
+                index++;
+            }else{
+                if('.' == p.charAt(index)){
+                    index++;
+                }
+                if('*' == p.charAt(index)){
+
+                }
+            }
+        }
+
+        return true;
+    }
+    public static void main(String[] args) {
+        TreeNode node1 = new TreeNode(1);
+        TreeNode node5 = new TreeNode(5);
+        TreeNode node9 = new TreeNode(9,node5,node1);
+        TreeNode node0 = new TreeNode(0);
+        TreeNode node4 = new TreeNode(4,node9,node0);
+        sumNumbers(node4);
 
 
     }
@@ -688,7 +999,13 @@ public class Solution {
      int val;
      TreeNode left;
      TreeNode right;
+     TreeNode(){}
      TreeNode(int x) { val = x; }
+     TreeNode(int val,TreeNode left,TreeNode right){
+         this.val = val;
+         this.left = left;
+         this.right = right;
+     }
  }
 
 class Node {

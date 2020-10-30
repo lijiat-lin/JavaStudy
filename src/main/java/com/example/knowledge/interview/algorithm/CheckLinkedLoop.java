@@ -110,6 +110,8 @@ public class CheckLinkedLoop {
         return null;
 
     }
+
+
     public static void main(String[] args) {
         Node node1 = new Node(5);
         Node node2 = new Node(3);
