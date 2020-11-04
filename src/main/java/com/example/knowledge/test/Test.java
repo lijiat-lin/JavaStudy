@@ -1,6 +1,10 @@
 package com.example.knowledge.test;
 
 
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.concurrent.ThreadFactory;
 
 /**
@@ -12,8 +16,13 @@ import java.util.concurrent.ThreadFactory;
 public class Test {
 
     public static void main(String[] args) throws Exception{
-        int num = 0;
+        Map<String, String> idenMap = new IdentityHashMap<>();
+        String parentId = new String("1");
 
+        idenMap.put(parentId, "hahahha");
+        idenMap.put(parentId, "heihiehie");
+        idenMap.put(parentId, "sdsfsdfs");
+        System.out.println(idenMap.get(parentId));
 
 
     }

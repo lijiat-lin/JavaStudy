@@ -1,6 +1,7 @@
 package com.example.knowledge.leetCode;
 
 import net.minidev.json.JSONObject;
+import org.apache.commons.lang3.ArrayUtils;
 
 import java.util.*;
 
@@ -983,14 +984,132 @@ public class Solution {
 
         return true;
     }
-    public static void main(String[] args) {
-        TreeNode node1 = new TreeNode(1);
-        TreeNode node5 = new TreeNode(5);
-        TreeNode node9 = new TreeNode(9,node5,node1);
-        TreeNode node0 = new TreeNode(0);
-        TreeNode node4 = new TreeNode(4,node9,node0);
-        sumNumbers(node4);
 
+
+    public boolean wordBreak(String s, List<String> wordDict) {
+        Set<String> wordDictSet = new HashSet<>(wordDict);
+        boolean[] dp = new boolean[s.length()+1];
+        dp[0] = true;
+        for (int i = 1; i <= s.length(); i++) {
+            for (int j = 0; j < i; j++) {
+                if(dp[j] && wordDictSet.contains(s.substring(j,i))){
+                    dp[i] = true;
+                    break;
+                }
+            }
+        }
+        return dp[s.length()];
+    }
+
+    public static List<String> wordBreak1(String s, List<String> wordDict) {
+        Map<Integer,List<List<String>>> map = new HashMap<>();
+        Set<String> hashSet = new HashSet<>(wordDict);
+        List<List<String>> wordBreaks = backTrack(s,s.length(),hashSet,0,map);
+        List<String> list = new ArrayList<>();
+        for(List<String> workBreak : wordBreaks){
+            list.add(String.join(" ",workBreak));
+        }
+        return list;
+    }
+
+    /**
+     *
+     * @param s 字符串
+     * @param length 字符串大小
+     * @param wordSet 字典集合
+     * @param index 下标值
+     * @param map 相应下标值所对应的  单词集合
+     * @return
+     */
+    private static List<List<String>> backTrack(String s, int length, Set<String> wordSet, int index, Map<Integer, List<List<String>>> map) {
+        if(!map.containsKey(index)){
+            List<List<String>> wordBreaks = new LinkedList<List<String>>();
+            if(index == length){
+                wordBreaks.add(new LinkedList<>());
+            }
+            for (int i = index+1; i <= length ; i++) {
+                //截取index 到 i 的字符串
+                String word = s.substring(index,i);
+                //校验该字符串是否在单词中
+                if(wordSet.contains(word)){
+                    //获取i之后的字符串的单词组成集合
+                    List<List<String>> nextWordBreaks = backTrack(s,length,wordSet,i,map);
+                    //循环之后字符串的 单词组成集合
+                    for(List<String> nextWordBreak:nextWordBreaks){
+                        LinkedList<String> wordBreak = new LinkedList<>(nextWordBreak);
+                        wordBreak.offerFirst(word);
+                        wordBreaks.add(wordBreak);
+                    }
+                }
+            }
+            map.put(index,wordBreaks);
+        }
+        return map.get(index);
+    }
+
+    public static int[]  intersection(int[] nums1, int[] nums2) {
+
+        Set<Integer> set1 = new HashSet<>();
+        for (int i = 0; i < nums1.length; i++) {
+
+            set1.add(nums1[i]);
+        }
+        Set<Integer> set2 = new HashSet<>();
+        for (int i = 0; i < nums2.length; i++) {
+            set2.add(nums2[i]);
+        }
+        int[] result = new int[Math.min(set1.size(),set2.size())];
+        int index = 0;
+        if(set1.size()<=set2.size()){
+            for(Integer integer: set1){
+                if(set2.contains(integer)){
+                    result[index++] = integer;
+                }
+            }
+        }else{
+            for(Integer integer: set2){
+                if(set1.contains(integer)){
+                    result[index++] = integer;
+                }
+            }
+        }
+        return Arrays.copyOf(result,index);
+
+
+    }
+    public boolean validMountainArray(int[] A) {
+        int max = 0;
+        int index = 0;
+        if(A.length<3){
+            return false;
+        }
+        for (int i = 0; i < A.length; i++) {
+            if(A[i]>=max){
+                max = A[i];
+                index = i;
+            }
+        }
+        if(index == 0|| index == A.length-1){
+            return false;
+        }
+        for (int i = 1; i < index; i++) {
+            if(A[i]<A[i-1]){
+                return false;
+            }
+        }
+        for (int i = index+1; i <A.length; i++) {
+            if(A[i]>A[i-1]){
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static void main(String[] args) {
+        int[] result = intersection(new int[]{4,9,5},new int[]{9,4,9,8,4});
+        for (int i = 0; i < result.length; i++) {
+            System.out.println(result[i]);
+        }
 
     }
 }
