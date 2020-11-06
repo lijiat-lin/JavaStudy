@@ -938,3 +938,82 @@ explain  select SQL_NO_CACHE * from emp order by age,deptid limit 10;
 ```
 
 ORDER BY子句，尽量使用Index方式排序,避免使用FileSort方式排序
+
+> 索引的选择
+
+当范围条件和group by 或者 order by  的字段出现二选一时 ，优先观察条件字段的过滤数量，如果过滤的数据足够多，而需要排序的数据并不多时，优先把索引放在范围字段上。反之，亦然。
+
+```mysql
+
+SELECT SQL_NO_CACHE * FROM emp WHERE age =30 AND empno <101000 ORDER BY NAME ;
+
+# 联合索引（age,empno,name） name的索引是无法用到的，会出现Using Filesort的情况
+# 联合索引（age，empno） 同上，order by的name是无法使用索引的，同样会出现Using Filesort的情况
+# 联合索引（age，name） ，age和name的索引都会使用到，不会出现UsingFilesort的情况
+
+# 虽然（age，name）不会出现UsingFilesort的情况，但是实际的效率，要低于(age,empno)的索引
+# mysql 在idx_age_empno 和 idx_age_name同时存在的情况，会根据实际的查询效率选择相应的索引
+```
+
+> 如果不在索引列上，filesort有两种算法：mysql就要启动双路排序和单路排序
+
+1、双路排序
+
+- MySQL 4.1之前是使用双路排序,字面意思就是两次扫描磁盘，最终得到数据，
+  读取行指针和orderby列，对他们进行排序，然后扫描已经排序好的列表，按照列表中的值重新从列表中读取对应的数据输出
+- 从磁盘取排序字段，在buffer进行排序，再从磁盘取其他字段。
+
+取一批数据，要对磁盘进行了两次扫描，众所周知，I\O是很耗时的，所以在mysql4.1之后，出现了第二种改进的算法，就是单路排序。
+
+2、单路排序
+
+- 从磁盘读取查询需要的所有列，按照order by列在buffer对它们进行排序，然后扫描排序后的列表进行输出，
+  它的效率更快一些，避免了第二次读取数据。并且把随机IO变成了顺序IO,但是它会使用更多的空间，
+  因为它把每一行都保存在内存中了。
+
+3、单路排序会出现的问题
+
+在sort_buffer中，单路排序比双路排序要多占用很多空间，因为单路排序是把所有字段都取出, 所以有可能取出的数据的总大小超出了sort_buffer的容量，导致每次只能取sort_buffer容量大小的数据，进行排序（创建tmp文件，多路合并），排完再取取sort_buffer容量大小，再排……从而多次I/O。
+
+本来想省一次I/O操作，反而导致了大量的I/O操作，反而得不偿失。
+
+4、优化单路排序的策略
+
+- 增大sort_buffer_size参数的设置
+- 增大max_length_for_sort_data参数的设置
+- 减少select 后面的查询的字段。
+
+5、使用策略优化的原因
+
+提高Order By的速度
+
+1. Order by时select * 是一个大忌只Query需要的字段， 这点非常重要。在这里的影响是：
+    1.1 当Query的字段大小总和小于max_length_for_sort_data 而且排序字段不是 TEXT|BLOB 类型时，会用改进后的算法——单路排序， 否则用老算法——多路排序。
+    1.2 两种算法的数据都有可能超出sort_buffer的容量，超出之后，会创建tmp文件进行合并排序，导致多次I/O，但是用单路排序算法的风险会更大一些,所以要提高sort_buffer_size。
+
+2. 尝试提高 sort_buffer_size
+不管用哪种算法，提高这个参数都会提高效率，当然，要根据系统的能力去提高，因为这个参数是针对每个进程的  1M-8M之间调整
+
+3. 尝试提高 max_length_for_sort_data
+提高这个参数， 会增加用改进算法的概率。但是如果设的太高，数据总容量超出sort_buffer_size的概率就增大，明显症状是高的磁盘I/O活动和低的处理器使用率.                  1024-8192之间调整
+
+> GROUP BY关键字优化
+
+group by 使用索引的原则几乎跟order by一致 ，唯一区别是groupby 即使没有过滤条件用到索引，也可以直接使用索引
+
+#### 最后使用索引的手段：覆盖索引
+
+什么是覆盖索引？
+简单说就是，select 到 from 之间查询的列 <=使用的索引列+主键
+
+## 查询截取分析
+
+### 慢查询日志
+
+#### 慢查询的概念
+
+- MySQL的慢查询日志是MySQL提供的一种日志记录，它用来记录在MySQL中响应时间超过阀值的语句，具体指运行时间超过long_query_time值的SQL，则会被记录到慢查询日志中。
+- 具体指运行时间超过long_query_time值的SQL，则会被记录到慢查询日志中。long_query_time的默认值为10，意思是运行10秒以上的语句。
+- 由他来查看哪些SQL超出了我们的最大忍耐时间值，比如一条sql执行超过5秒钟，我们就算慢SQL，希望能收集超过5秒的sql，结合之前explain进行全面分析。
+
+#### 如何使用慢查询日志

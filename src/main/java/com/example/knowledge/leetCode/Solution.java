@@ -1105,6 +1105,40 @@ public class Solution {
         return true;
     }
 
+    public int[][] insert(int[][] intervals, int[] newInterval) {
+        int left = newInterval[0];
+        int right = newInterval[1];
+        boolean placed = false;
+        List<int[]> ansList = new ArrayList<>();
+        for (int i = 0; i < intervals.length; i++) {
+            int[] interval = intervals[i];
+            //区间大于插入的新区间
+            if (interval[0]>right){
+                if(!placed){
+                    ansList.add(new int[]{left,right});
+                    placed = true;
+                }
+                ansList.add(interval);
+            }else if(interval[1]<left){
+                //区间小于插入的区间
+                ansList.add(interval);
+            }else{
+                //与插入的区间有交集
+                left = Math.min(left,interval[0]);
+                right = Math.max(right,interval[1]);
+            }
+        }
+        if(!placed){
+            ansList.add(new int[]{left,right});
+        }
+        int[][] ans = new int[ansList.size()][2];
+        for (int i = 0; i < ansList.size(); i++) {
+            ans[i] = ansList.get(i);
+        }
+
+
+        return ans;
+    }
     public static void main(String[] args) {
         int[] result = intersection(new int[]{4,9,5},new int[]{9,4,9,8,4});
         for (int i = 0; i < result.length; i++) {
