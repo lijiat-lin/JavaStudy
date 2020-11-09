@@ -1024,9 +1024,202 @@ group by 使用索引的原则几乎跟order by一致 ，唯一区别是groupby 
 
 ```mysql
 #查看慢查询日志是否开启
-SHOW VARIABLES LIKE '%slow_query_log%';
+mysql> SHOW VARIABLES LIKE '%slow_query_log%';
++---------------------+-------------------------------------------------+
+| Variable_name       | Value                                           |
++---------------------+-------------------------------------------------+
+| slow_query_log      | ON                                              |
+| slow_query_log_file | /var/lib/mysql/iZm5e74mdg5903trjt1e17Z-slow.log |
++---------------------+-------------------------------------------------+
+2 rows in set (0.04 sec)
 
 #开启慢查询日志
 set global slow_query_log=1;
+
+# 查看超过长时间算慢查询
+mysql> SHOW VARIABLES LIKE 'long_query_time%';
++-----------------+-----------+
+| Variable_name   | Value     |
++-----------------+-----------+
+| long_query_time | 10.000000 |
++-----------------+-----------+
+1 row in set (0.03 sec)
+# 设置当前窗口的慢查询时间
+mysql> set  long_query_time=1;
+
+# 查看当前系统中有多少慢查询记录
+mysql> show global status like '%Slow_queries%';
+
+# 如果需要配置，可以在配置文件my.cnf 【mysqld】下配置慢查询
+slow_query_log=1
+slow_query_log_file=/var/lib/mysql/atguigu-slow.log
+long_query_time=3
+log_output=FILE
+```
+
+#### 日志分析工具mysqldumpslow
+
+```shell
+[root@iZm5e74mdg5903trjt1e17Z ~]# mysqldumpslow --help
+Usage: mysqldumpslow [ OPTS... ] [ LOGS... ]
+
+Parse and summarize the MySQL slow query log. Options are
+
+  --verbose    verbose
+  --debug      debug
+  --help       write this text to standard output
+
+  -v           verbose
+  -d           debug
+  # -s 是表示按照何种方式排序；
+  -s ORDER     what to sort by (al, at, ar, c, l, r, t), 'at' is default
+  			   # al:平均锁定时间 
+                al: average lock time
+                # ar:平均返回记录数
+                ar: average rows sent
+                # at:平均查询时间
+                at: average query time
+                 # 访问次数
+                 c: count
+                 # 锁定时间
+                 l: lock time
+                 # 返回记录
+                 r: rows sent
+                 # 查询时间
+                 t: query time  
+  -r           reverse the sort order (largest last instead of first)
+  # -t:即为返回前面多少条的数据；
+  -t NUM       just show the top n queries
+  # -a 不将数字抽象成N，字符串抽象成S
+  -a           don't abstract all numbers to N and strings to 'S' 
+  -n NUM       abstract numbers with at least n digits within names
+  # -g:后边搭配一个正则匹配模式，大小写不敏感的；
+  -g PATTERN   grep: only consider stmts that include this string
+  -h HOSTNAME  hostname of db server for *-slow.log filename (can be wildcard),
+               default is '*', i.e. match all
+  -i NAME      name of server instance (if using mysql.server startup script)
+  -l           don't subtract lock time from total time
+
+```
+
+> 常用命令参考
+
+```shell
+# 得到返回记录集最多的10个SQL
+mysqldumpslow -s r -t 10 /var/lib/mysql/atguigu-slow.log
+ 
+# 得到访问次数最多的10个SQL
+mysqldumpslow -s c -t 10 /var/lib/mysql/atguigu-slow.log
+ 
+# 得到按照时间排序的前10条里面含有左连接的查询语句
+mysqldumpslow -s t -t 10 -g "left join" /var/lib/mysql/atguigu-slow.log
+ 
+# 另外建议在使用这些命令时结合 | 和more 使用 ，否则有可能出现爆屏情况
+mysqldumpslow -s r -t 10 /var/lib/mysql/atguigu-slow.log | more
+```
+
+
+
+## 主从复制
+
+### 主从复制的基本原理
+
+slave会从master读取binlog来进行数据同步
+
+![image-20201109223312642](G:\javaProject\JavaStudy\document\image\mysql\主从复制原理图.png)
+
+MySQL复制过程分成三步：
+
+- master将改变记录到二进制日志（binary log）。这些记录过程叫做二进制日志事件，binary log events；
+- slave将master的binary log events拷贝到它的中继日志（relay log）；
+- slave重做中继日志中的事件，将改变应用到自己的数据库中。 MySQL复制是异步的且串行化的
+
+**主从复制存在的最大问题：延时**
+
+### 主从复制遵从的原则
+
+- 每个slave只有一个master
+- 每个slave只能有一个唯一的服务器ID
+- 每个master可以有多个salve
+
+### 一主一从常见配置
+
+1、mysql版本一致且后台以服务运行
+
+2、主从都配置在[mysqld]结点下，都是小写
+
+3、主机修改my.ini配置文件（linux就是/etc/my.cnf文件）
+
+```shell
+# 主服务器唯一ID
+server-id=1
+# 启用二进制日志
+log-bin=自己本地的路径/data/mysqlbin
+# 设置不要复制的数据库
+binlog-ignore-db=mysql
+# 设置需要复制的数据库
+binlog-do-db=需要复制的主数据库名字
+# 设置logbin格式
+# 对于STATEMENT ，如果sql中有时间等于now()的情况，会导致主从数据库中的时间不一致
+binlog_format=STATEMENT（默认）
+# 将每一行的改变记录下来，在从数据库中就免去计算导致数据不一致。
+# 行模式存在的问题：当整个表大面积更新数据的时候，就会导致效率非常差
+binlog_format=ROW
+# 混合模式 如果有函数就记录计算后的行数据，如果没有函数则记录SQL。
+# 但是出现变量的情况也可能会导致主从不一致
+binlog_format=MIXED（默认）
+```
+
+4、更改从机的配置（mysql主从复制起始时，从机不继承主机数据）
+
+```shell
+# 与主机的server-id区分开
+server-id = 2
+# 配置数据库为从库
+relay-log=mysql-relay
+```
+
+5、Windows主机和Linux从机防火墙
+
+6、在Windows主机上建立帐户并授权slave
+
+```mysql
+# 创建一个从机的用户账号和密码
+GRANT REPLICATION SLAVE ON *.* TO 'slave001'@'从机器数据库IP' IDENTIFIED BY '123456';
+
+# 查询master的状态（记录下File和Position的值）
+show master status;
+
+# 执行完此步骤后不要再操作主服务器MYSQL，防止主服务器状态值变化
+```
+
+
+
+7、在Linux从机上配置需要复制的主机
+
+```mysql
+# 创建一个master
+CHANGE MASTER TO MASTER_HOST='主机IP',MASTER_USER='slave001',MASTER_PASSWORD='123456',MASTER_LOG_FILE='File名字',MASTER_LOG_POS=Position数字;
+
+# 启动从服务器复制功能
+start slave;
+
+# 查看从服务器的状态
+show slave status\G;
+
+# 以下两个参数都是yes则成功
+# Slave_IO_Running: Yes   
+# Slave_SQL_Running: Yes
+```
+
+8、主机新建库、新建表、insert记录，从机复制
+
+```mysql
+# 在从服务器停止从服务的复制功能
+stop slave;
+
+# 重新配置主从
+stop slave;
+reset master;
 ```
 
