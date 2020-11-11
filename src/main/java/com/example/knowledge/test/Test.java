@@ -1,11 +1,7 @@
 package com.example.knowledge.test;
 
 
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @program: knowledge
@@ -14,16 +10,26 @@ import java.util.concurrent.ThreadFactory;
  * @create: 2020-07-31 11:10
  */
 public class Test {
+    public static void main(String[] args) {
+        Mydata mydata = new Mydata();
+        int b = 0;
 
-    public static void main(String[] args) throws Exception{
-        Map<String, String> idenMap = new IdentityHashMap<>();
-        String parentId = new String("1");
+        new Thread(() -> {
 
-        idenMap.put(parentId, "hahahha");
-        idenMap.put(parentId, "heihiehie");
-        idenMap.put(parentId, "sdsfsdfs");
-        System.out.println(idenMap.get(parentId));
+            mydata.number++;
 
 
+        },"AAA").start();
+        while (mydata.number == 0) {
+
+        }
+
+    }
+}
+
+class Mydata{
+    int number = 0;
+    public void addTo60(){
+        this.number = 60;
     }
 }
