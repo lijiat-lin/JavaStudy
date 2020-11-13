@@ -1,35 +1,51 @@
 package com.example.knowledge.test;
 
 
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
 
-/**
- * @program: knowledge
- * @description:
- * @author: zhangjialin
- * @create: 2020-07-31 11:10
- */
 public class Test {
-    public static void main(String[] args) {
-        Mydata mydata = new Mydata();
-        int b = 0;
+
+
+    public static void main(String[] args) throws InterruptedException {
+        //创建长度为3的阻塞队列
+
+        //默认非公平锁队列
+        BlockingQueue<String> blockingQueue = new SynchronousQueue<>();
+        new Thread(() -> {
+            try {
+                System.out.println(Thread.currentThread().getName()+"\t put 1");
+                blockingQueue.put("1");
+
+                System.out.println(Thread.currentThread().getName()+"\t put 2");
+                blockingQueue.put("2");
+
+                System.out.println(Thread.currentThread().getName()+"\t put 3");
+                blockingQueue.put("3");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        },"AAA").start();
 
         new Thread(() -> {
+            try {
+                Thread.sleep(3000);
+                System.out.println(Thread.currentThread().getName()+"\t"+blockingQueue.take());
 
-            mydata.number++;
+                Thread.sleep(3000);
+                System.out.println(Thread.currentThread().getName()+"\t"+blockingQueue.take());
 
+                Thread.sleep(3000);
+                System.out.println(Thread.currentThread().getName()+"\t"+blockingQueue.take());
 
-        },"AAA").start();
-        while (mydata.number == 0) {
-
-        }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        },"BBB").start();
 
     }
-}
 
-class Mydata{
-    int number = 0;
-    public void addTo60(){
-        this.number = 60;
-    }
 }
