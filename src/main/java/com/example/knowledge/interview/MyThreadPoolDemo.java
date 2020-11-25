@@ -15,9 +15,9 @@ public class MyThreadPoolDemo {
         //固定线程数的的线程池
         ExecutorService executorService= Executors.newFixedThreadPool(5);
         //线程池中只有一个线程
-//        Executors.newSingleThreadExecutor();
+        Executors.newSingleThreadExecutor();
         //可变线程数的线程池
-//        Executors.newCachedThreadPool();
+        Executors.newCachedThreadPool();
 
         //模拟10个用户办理业务
         try {
