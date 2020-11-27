@@ -1,7 +1,30 @@
 package com.example.knowledge.interview;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+
+class LocalThread implements Runnable{
+
+    private String lockA;
+    private String lockB;
+
+    public LocalThread(String lockA,String lockB){
+        this.lockA = lockA;
+        this.lockB = lockB;
+    }
+    @Override
+    public void run() {
+        synchronized (lockA){
+            System.out.println(Thread.currentThread().getName()+"\t 自己持有"+lockA+"\t 尝试获取"+lockB);
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            synchronized (lockB){
+                System.out.println(Thread.currentThread().getName()+"\t 自己持有"+lockB+"\t 尝试获取"+lockA);
+            }
+        }
+    }
+}
 
 /**
  * @program: knowledge
@@ -11,27 +34,11 @@ import java.util.concurrent.Executors;
  */
 public class MyThreadPoolDemo {
     public static void main(String[] args) {
+        String lockA = "lockA";
+        String lockB = "lockB";
 
-        //固定线程数的的线程池
-        ExecutorService executorService= Executors.newFixedThreadPool(5);
-        //线程池中只有一个线程
-        Executors.newSingleThreadExecutor();
-        //可变线程数的线程池
-        Executors.newCachedThreadPool();
-
-        //模拟10个用户办理业务
-        try {
-            for (int i = 1; i <= 20 ; i++) {
-                executorService.execute(() -> {
-                    System.out.println(Thread.currentThread().getName()+"\t 办理业务");
-                });
-            }
-
-        }catch (Exception e){
-            e.printStackTrace();
-        }finally {
-            executorService.shutdown();
-        }
+        new Thread(new LocalThread(lockA,lockB),"ThreadAAA").start();
+        new Thread(new LocalThread(lockB,lockA),"ThreadBBB").start();
 
 
 
